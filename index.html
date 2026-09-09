@@ -529,6 +529,13 @@
 
   .act-ex-row .ex-meta { font-size: 12px; color: var(--ink-soft); }
 
+  .ex-row-actions { display: flex; align-items: center; gap: 2px; }
+
+  .act-ex-row .ex-dup {
+    background: none; border: none; color: var(--accent);
+    font-size: 15px; cursor: pointer; padding: 0 4px;
+  }
+
   .act-ex-row .ex-remove {
     background: none; border: none; color: var(--danger);
     font-size: 15px; cursor: pointer; padding: 0 4px;
@@ -583,6 +590,54 @@
     display: grid;
     grid-template-columns: 1fr 1fr 1fr;
     gap: 8px;
+  }
+
+  .ex-suggestions {
+    max-height: 190px;
+    overflow-y: auto;
+    margin-top: 6px;
+  }
+
+  .ex-suggestions:empty { margin-top: 0; }
+
+  .ex-suggest-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 7px 10px;
+    border-radius: 10px;
+    font-size: 13px;
+    cursor: pointer;
+  }
+
+  .ex-suggest-row:active { background: var(--empty); }
+
+  .ex-suggest-thumb {
+    width: 36px;
+    height: 36px;
+    border-radius: 8px;
+    object-fit: cover;
+    background: var(--empty);
+    flex-shrink: 0;
+  }
+
+  .ex-suggest-thumb-empty { background: var(--empty); }
+
+  .ex-suggest-row .ex-suggest-name { flex: 1; min-width: 0; }
+
+  .ex-suggest-row .ex-suggest-group {
+    font-size: 11px;
+    color: var(--ink-soft);
+    background: var(--empty);
+    padding: 2px 8px;
+    border-radius: 8px;
+    flex-shrink: 0;
+  }
+
+  .ex-suggest-empty {
+    font-size: 12px;
+    color: var(--ink-soft);
+    padding: 8px 10px;
   }
 
   .exercise-list {
@@ -915,7 +970,8 @@
 <div class="exercise-form-overlay" id="ex-overlay">
   <div class="ex-modal">
     <div style="font-size:14px;font-weight:700;margin-bottom:12px;" id="ex-modal-title">Ajouter un exercice</div>
-    <input type="text" id="ex-name" placeholder="Nom de l'exercice (ex: Squat)">
+    <input type="text" id="ex-name" placeholder="Nom de l'exercice (ex: Squat)" autocomplete="off">
+    <div class="ex-suggestions" id="ex-suggestions"></div>
     <div class="row3" style="margin-top:8px;">
       <input type="number" id="ex-sets" placeholder="Séries" inputmode="numeric">
       <input type="number" id="ex-reps" placeholder="Reps" inputmode="numeric">
@@ -990,6 +1046,234 @@
     { id: 'natation', label: 'Natation', emoji: '🏊' },
     { id: 'autre', label: 'Autre', emoji: '⚡' }
   ];
+
+  // Bibliothèque d'exercices courants, en français, classés par groupe musculaire.
+  // Sert uniquement à l'autocomplétion — le champ reste un texte libre, donc
+  // n'importe quel exercice hors liste peut aussi être tapé et enregistré.
+  const EXERCISE_LIBRARY = [
+    ['Pectoraux', ['Développé couché barre','Développé couché haltères','Développé incliné barre','Développé incliné haltères','Développé décliné','Écarté couché haltères','Pec deck (butterfly)','Dips pectoraux','Pompes','Pompes lestées','Crossover à la poulie']],
+    ['Dos', ['Tractions pronation','Tractions supination','Tirage vertical poulie','Rowing barre','Rowing haltère','Tirage horizontal poulie','Soulevé de terre','Soulevé de terre roumain','Good morning','Tirage nuque','Hyperextensions']],
+    ['Épaules', ['Développé militaire barre','Développé militaire haltères','Élévations latérales','Élévations frontales','Oiseau (élévations arrière)','Rowing menton','Face pull','Arnold press',"Haussements d'épaules (shrugs)"]],
+    ['Biceps', ['Curl barre','Curl haltères','Curl marteau','Curl pupitre (Scott)','Curl concentré','Curl câble']],
+    ['Triceps', ['Extension triceps poulie haute','Barre au front (skull crusher)','Dips triceps','Extension triceps haltère','Kick-back triceps']],
+    ['Jambes', ['Squat barre','Squat gobelet','Presse à cuisses','Fentes','Fentes bulgares','Fentes marchées','Leg extension','Leg curl','Soulevé de terre jambes tendues','Squat sauté','Mollets debout','Mollets assis']],
+    ['Fessiers', ['Hip thrust','Pont fessier','Abduction hanche','Kickback fessier','Squat sumo']],
+    ['Abdominaux', ['Crunch','Relevé de jambes','Gainage (planche)','Gainage latéral','Russian twist','Mountain climbers','Roulette abdo (ab wheel)','Crunch câble']],
+    ['Cardio', ['Burpees','Corde à sauter','Rameur','Vélo elliptique','Tapis de course','Kettlebell swing']],
+    ['Fonctionnel', ['Thruster','Clean and press','Wall ball','Battle rope','Box jump','Sled push (poussée traîneau)',"Farmer's walk (marche du fermier)"]]
+  ];
+
+  // Terme de recherche anglais associé à chaque exercice français, utilisé
+  // uniquement pour retrouver une photo correspondante dans free-exercise-db
+  // (base publique en anglais). Le matching se fait par recouvrement de mots-clés,
+  // donc une correspondance approximative suffit — si rien de suffisamment proche
+  // n'est trouvé, l'exercice reste simplement sans photo.
+  const EXERCISE_EN_HINTS = {
+    'Développé couché barre': 'Barbell Bench Press',
+    'Développé couché haltères': 'Dumbbell Bench Press',
+    'Développé incliné barre': 'Barbell Incline Bench Press',
+    'Développé incliné haltères': 'Incline Dumbbell Press',
+    'Développé décliné': 'Decline Bench Press',
+    'Écarté couché haltères': 'Dumbbell Flyes',
+    'Pec deck (butterfly)': 'Butterfly',
+    'Dips pectoraux': 'Dips Chest',
+    'Pompes': 'Pushups',
+    'Pompes lestées': 'Weighted Pushups',
+    'Crossover à la poulie': 'Cable Crossover',
+    'Tractions pronation': 'Pullups',
+    'Tractions supination': 'Chin-Up',
+    'Tirage vertical poulie': 'Lat Pulldown',
+    'Rowing barre': 'Bent Over Barbell Row',
+    'Rowing haltère': 'One-Arm Dumbbell Row',
+    'Tirage horizontal poulie': 'Seated Cable Rows',
+    'Soulevé de terre': 'Barbell Deadlift',
+    'Soulevé de terre roumain': 'Romanian Deadlift',
+    'Good morning': 'Good Morning',
+    'Tirage nuque': 'Wide-Grip Lat Pulldown Behind The Neck',
+    'Hyperextensions': 'Hyperextensions Back Extensions',
+    'Développé militaire barre': 'Standing Military Press',
+    'Développé militaire haltères': 'Seated Dumbbell Press',
+    'Élévations latérales': 'Side Lateral Raise',
+    'Élévations frontales': 'Front Dumbbell Raise',
+    'Oiseau (élévations arrière)': 'Bent Over Lateral Raise',
+    'Rowing menton': 'Upright Barbell Row',
+    'Face pull': 'Face Pull Cable',
+    'Arnold press': 'Arnold Dumbbell Press',
+    "Haussements d'épaules (shrugs)": 'Barbell Shrug',
+    'Curl barre': 'Barbell Curl',
+    'Curl haltères': 'Dumbbell Bicep Curl',
+    'Curl marteau': 'Hammer Curl',
+    'Curl pupitre (Scott)': 'Preacher Curl',
+    'Curl concentré': 'Concentration Curl',
+    'Curl câble': 'Cable Curl',
+    'Extension triceps poulie haute': 'Triceps Pushdown',
+    'Barre au front (skull crusher)': 'Lying Triceps Press',
+    'Dips triceps': 'Triceps Dips',
+    'Extension triceps haltère': 'Standing Dumbbell Triceps Extension',
+    'Kick-back triceps': 'Triceps Kickback',
+    'Squat barre': 'Barbell Full Squat',
+    'Squat gobelet': 'Goblet Squat',
+    'Presse à cuisses': 'Leg Press',
+    'Fentes': 'Barbell Lunge',
+    'Fentes bulgares': 'Bulgarian Split Squat',
+    'Fentes marchées': 'Walking Lunge',
+    'Leg extension': 'Leg Extensions',
+    'Leg curl': 'Lying Leg Curls',
+    'Soulevé de terre jambes tendues': 'Stiff-Legged Barbell Deadlift',
+    'Squat sauté': 'Jump Squat',
+    'Mollets debout': 'Standing Calf Raises',
+    'Mollets assis': 'Seated Calf Raise',
+    'Hip thrust': 'Barbell Hip Thrust',
+    'Pont fessier': 'Glute Bridge',
+    'Abduction hanche': 'Hip Abductor',
+    'Kickback fessier': 'Cable Kickback',
+    'Squat sumo': 'Sumo Squat',
+    'Crunch': 'Crunches',
+    'Relevé de jambes': 'Hanging Leg Raise',
+    'Gainage (planche)': 'Plank',
+    'Gainage latéral': 'Side Bridge',
+    'Russian twist': 'Russian Twist',
+    'Mountain climbers': 'Mountain Climbers',
+    'Roulette abdo (ab wheel)': 'Ab Roller',
+    'Crunch câble': 'Cable Crunch',
+    'Burpees': 'Burpee',
+    'Corde à sauter': 'Jump Rope',
+    'Rameur': 'Rowing',
+    'Vélo elliptique': 'Elliptical Trainer',
+    'Tapis de course': 'Treadmill Running',
+    'Kettlebell swing': 'Kettlebell Swing',
+    'Thruster': 'Thruster',
+    'Clean and press': 'Clean and Press',
+    'Wall ball': 'Wall Ball',
+    'Battle rope': 'Battle Ropes',
+    'Box jump': 'Box Jump',
+    'Sled push (poussée traîneau)': 'Sled Push',
+    "Farmer's walk (marche du fermier)": 'Farmers Walk'
+  };
+
+  // ---- Photos d'exercices (base publique free-exercise-db, domaine public) ----
+  // Téléchargée une seule fois (index allégé : juste noms + chemin d'image),
+  // mise en cache dans localStorage, puis associée à nos exercices français
+  // par recouvrement de mots-clés anglais. Aucune photo n'est bloquante :
+  // en cas d'échec réseau ou d'absence de correspondance, l'app continue
+  // normalement sans image.
+  const IMAGE_DB_URL = 'https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/dist/exercises.json';
+  const IMAGE_BASE_URL = 'https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/';
+  const IMAGE_CACHE_KEY = 'exercise-image-db-v1';
+  const IMAGE_MAP_KEY = 'exercise-image-map-v1';
+
+  let exerciseImageMap = {};
+  let imageDbReady = false;
+  let imageDbPromise = null;
+
+  function tokenizeEn(s) {
+    return normSearch(s).replace(/[^a-z0-9]+/g, ' ').split(' ').filter(Boolean);
+  }
+
+  function resolveImageMap(list) {
+    let cached = {};
+    try {
+      const raw = localStorage.getItem(IMAGE_MAP_KEY);
+      if (raw) cached = JSON.parse(raw);
+    } catch (e) {}
+
+    const tokenized = list.map(e => ({ image: e.image, tokens: tokenizeEn(e.name) }));
+
+    Object.keys(EXERCISE_EN_HINTS).forEach(frName => {
+      if (Object.prototype.hasOwnProperty.call(cached, frName)) {
+        exerciseImageMap[frName] = cached[frName];
+        return;
+      }
+      const hintTokens = tokenizeEn(EXERCISE_EN_HINTS[frName]);
+      let best = null, bestScore = 0;
+      tokenized.forEach(e => {
+        let score = 0;
+        hintTokens.forEach(t => { if (e.tokens.includes(t)) score++; });
+        if (score > bestScore) { bestScore = score; best = e; }
+      });
+      const minScore = Math.max(1, Math.ceil(hintTokens.length * 0.5));
+      exerciseImageMap[frName] = (best && bestScore >= minScore) ? (IMAGE_BASE_URL + best.image) : null;
+    });
+
+    try { localStorage.setItem(IMAGE_MAP_KEY, JSON.stringify(exerciseImageMap)); } catch (e) {}
+  }
+
+  function loadImageDatabase() {
+    if (imageDbReady) return Promise.resolve();
+    if (imageDbPromise) return imageDbPromise;
+
+    imageDbPromise = (async () => {
+      try {
+        let list;
+        const cachedRaw = localStorage.getItem(IMAGE_CACHE_KEY);
+        if (cachedRaw) {
+          list = JSON.parse(cachedRaw);
+        } else {
+          const res = await fetch(IMAGE_DB_URL);
+          if (!res.ok) throw new Error('HTTP ' + res.status);
+          const data = await res.json();
+          list = data
+            .filter(e => e && e.name && e.images && e.images[0])
+            .map(e => ({ name: e.name, image: e.images[0] }));
+          localStorage.setItem(IMAGE_CACHE_KEY, JSON.stringify(list));
+        }
+        resolveImageMap(list);
+        imageDbReady = true;
+      } catch (err) {
+        console.error('Photos indisponibles (hors-ligne ou erreur réseau) :', err);
+      }
+    })();
+
+    return imageDbPromise;
+  }
+
+  function normSearch(s) {
+    return s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  }
+
+  function searchExercises(query) {
+    const q = normSearch(query.trim());
+    const results = [];
+    EXERCISE_LIBRARY.forEach(([group, names]) => {
+      names.forEach(name => {
+        if (!q || normSearch(name).includes(q)) {
+          results.push({ name, group });
+        }
+      });
+    });
+    return results.slice(0, 8);
+  }
+
+  function renderExerciseSuggestions(query) {
+    const box = document.getElementById('ex-suggestions');
+    const results = searchExercises(query);
+    box.innerHTML = '';
+    if (results.length === 0) {
+      if (query.trim()) {
+        const empty = document.createElement('div');
+        empty.className = 'ex-suggest-empty';
+        empty.textContent = 'Aucun résultat — tu peux quand même valider ce nom.';
+        box.appendChild(empty);
+      }
+      return;
+    }
+    results.forEach(r => {
+      const row = document.createElement('div');
+      row.className = 'ex-suggest-row';
+      const imgUrl = exerciseImageMap[r.name];
+      const thumbHtml = imgUrl
+        ? '<img class="ex-suggest-thumb" src="' + imgUrl + '" loading="lazy" alt="" onerror="this.remove()">'
+        : '<span class="ex-suggest-thumb ex-suggest-thumb-empty"></span>';
+      row.innerHTML = thumbHtml +
+        '<span class="ex-suggest-name">' + escapeHtml(r.name) + '</span>' +
+        '<span class="ex-suggest-group">' + escapeHtml(r.group) + '</span>';
+      row.addEventListener('click', () => {
+        document.getElementById('ex-name').value = r.name;
+        box.innerHTML = '';
+      });
+      box.appendChild(row);
+    });
+  }
 
   const todayObj = new Date();
   const todayKey = fmtKey(todayObj);
@@ -1239,7 +1523,10 @@
         row.innerHTML =
           '<div><div>' + escapeHtml(ex.name) + '</div>' +
           '<div class="ex-meta">' + exMetaText(ex) + '</div></div>' +
-          '<button class="ex-remove" data-act="' + idx + '" data-ex="' + exIdx + '">✕</button>';
+          '<div class="ex-row-actions">' +
+            '<button class="ex-dup" data-act="' + idx + '" data-ex="' + exIdx + '" aria-label="Dupliquer">⧉</button>' +
+            '<button class="ex-remove" data-act="' + idx + '" data-ex="' + exIdx + '" aria-label="Supprimer">✕</button>' +
+          '</div>';
         body.appendChild(row);
       });
 
@@ -1255,6 +1542,17 @@
       head.addEventListener('click', (e) => {
         if (e.target.dataset.remove !== undefined) return;
         expandedIdx = (expandedIdx === idx) ? null : idx;
+        renderActivityList();
+      });
+    });
+
+    list.querySelectorAll('.ex-dup').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const a = parseInt(e.target.dataset.act);
+        const x = parseInt(e.target.dataset.ex);
+        const orig = currentActivities[a].exercises[x];
+        currentActivities[a].exercises.splice(x + 1, 0, { ...orig });
         renderActivityList();
       });
     });
@@ -1372,7 +1670,18 @@
     document.getElementById('ex-weight').value = '';
     document.getElementById('ex-name').style.borderColor = '';
     document.getElementById('ex-overlay').classList.add('open');
+    renderExerciseSuggestions('');
     setTimeout(() => document.getElementById('ex-name').focus(), 100);
+
+    // Charge l'index des photos en tâche de fond (une seule fois, mis en cache
+    // ensuite). Si le modal est encore ouvert une fois prêt, on rafraîchit
+    // la liste pour faire apparaître les vignettes sans action de l'utilisateur.
+    loadImageDatabase().then(() => {
+      const overlay = document.getElementById('ex-overlay');
+      if (overlay.classList.contains('open')) {
+        renderExerciseSuggestions(document.getElementById('ex-name').value);
+      }
+    });
   }
 
   function closeExerciseModal() {
@@ -1406,6 +1715,11 @@
 
   document.getElementById('ex-name').addEventListener('input', (e) => {
     e.target.style.borderColor = '';
+    renderExerciseSuggestions(e.target.value);
+  });
+
+  document.getElementById('ex-name').addEventListener('focus', (e) => {
+    renderExerciseSuggestions(e.target.value);
   });
 
   // --- Ressenti ---
