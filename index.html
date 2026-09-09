@@ -91,6 +91,31 @@
     cursor: pointer;
   }
 
+  /* Tabs */
+  .tab-row {
+    display: flex;
+    gap: 8px;
+    margin: 18px 0 0;
+  }
+
+  .tab-btn {
+    flex: 1;
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 10px;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--ink-soft);
+    cursor: pointer;
+  }
+
+  .tab-btn.active {
+    background: var(--done);
+    border-color: var(--done);
+    color: white;
+  }
+
   /* Stat banner */
   .stat-row {
     display: flex;
@@ -364,6 +389,155 @@
 
   .duration-value span { font-size: 13px; font-weight: 500; color: var(--ink-soft); }
 
+  .health-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+  }
+
+  .health-field {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 8px 12px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .health-field .health-icon { font-size: 15px; }
+
+  .health-field input {
+    border: none;
+    background: none;
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--ink);
+    width: 100%;
+    min-width: 0;
+    padding: 4px 0;
+  }
+
+  .health-field input:focus { outline: none; }
+
+  .health-field .health-unit {
+    font-size: 11px;
+    color: var(--ink-soft);
+    white-space: nowrap;
+  }
+
+  /* Activity blocks */
+  .activity-block {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    padding: 12px 14px;
+    margin-bottom: 8px;
+  }
+
+  .activity-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    cursor: pointer;
+  }
+
+  .activity-head-left {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .activity-emoji { font-size: 20px; }
+
+  .activity-name { font-size: 14px; font-weight: 700; }
+
+  .activity-meta { font-size: 12px; color: var(--ink-soft); margin-top: 1px; }
+
+  .activity-actions { display: flex; align-items: center; gap: 8px; }
+
+  .activity-remove {
+    background: none; border: none; color: var(--danger);
+    font-size: 15px; cursor: pointer; padding: 2px 4px;
+  }
+
+  .activity-chevron { font-size: 13px; color: var(--ink-soft); }
+
+  .activity-body {
+    display: none;
+    border-top: 1px solid var(--line);
+    margin-top: 10px;
+    padding-top: 8px;
+  }
+
+  .activity-block.expanded .activity-body { display: block; }
+
+  .act-ex-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 7px 0;
+    font-size: 13px;
+  }
+
+  .act-ex-row .ex-meta { font-size: 12px; color: var(--ink-soft); }
+
+  .act-ex-row .ex-remove {
+    background: none; border: none; color: var(--danger);
+    font-size: 15px; cursor: pointer; padding: 0 4px;
+  }
+
+  .add-ex-mini {
+    width: 100%;
+    background: none;
+    border: 1.5px dashed var(--accent);
+    color: var(--accent);
+    border-radius: 10px;
+    padding: 8px;
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+    margin-top: 6px;
+  }
+
+  /* Exercise modal */
+  .exercise-form-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.5);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 300;
+    padding: 20px;
+  }
+
+  .exercise-form-overlay.open { display: flex; }
+
+  .ex-modal {
+    background: var(--bg);
+    border-radius: 18px;
+    padding: 18px;
+    width: 100%;
+    max-width: 340px;
+  }
+
+  .ex-modal input {
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 10px 12px;
+    font-size: 14px;
+    background: var(--card);
+    color: var(--ink);
+    width: 100%;
+  }
+
+  .ex-modal .row3 {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 8px;
+  }
+
   .exercise-list {
     background: var(--card);
     border-radius: 14px;
@@ -538,6 +712,12 @@
     <button class="icon-btn" id="export-btn" title="Exporter mes données">⬇</button>
   </div>
 
+  <div class="tab-row">
+    <button class="tab-btn active" data-tab="calendar">Calendrier</button>
+    <button class="tab-btn" data-tab="body">Suivi corporel</button>
+  </div>
+
+  <div id="tab-calendar">
   <div class="stat-row">
     <div class="stat">
       <div class="num" id="stat-month">0</div>
@@ -582,6 +762,34 @@
     Touche un jour pour voir ou ajouter le détail de ta séance.<br>
     Tes données restent sur cet appareil. <button id="export-link">Exporter une sauvegarde</button>
   </div>
+  </div>
+
+  <div id="tab-body" style="display:none;">
+    <div class="stat-row">
+      <div class="stat">
+        <div class="num" id="weight-current">—</div>
+        <div class="label">Poids actuel (kg)</div>
+      </div>
+      <div class="stat streak">
+        <div class="num" id="weight-change">—</div>
+        <div class="label">Évolution 30j</div>
+      </div>
+    </div>
+
+    <div class="field-label">Ajouter une pesée</div>
+    <div class="health-field" style="margin-bottom:20px;">
+      <span class="health-icon">⚖️</span>
+      <input type="number" id="weight-input" placeholder="72.4" inputmode="decimal" step="0.1">
+      <span class="health-unit">kg</span>
+      <button id="weight-add-btn" style="background:var(--done);color:white;border:none;border-radius:10px;padding:8px 14px;font-size:13px;font-weight:700;margin-left:6px;">Ajouter</button>
+    </div>
+
+    <div class="field-label">Courbe (30 derniers jours)</div>
+    <svg id="weight-chart" viewBox="0 0 340 160" style="width:100%;height:160px;background:var(--card);border:1px solid var(--line);border-radius:14px;"></svg>
+
+    <div class="field-label">Historique</div>
+    <div class="exercise-list" id="weight-history"></div>
+  </div>
 </div>
 
 <!-- Day detail sheet -->
@@ -592,29 +800,43 @@
       <button class="icon-btn" id="sheet-close">✕</button>
     </div>
 
-    <div class="field-label">Type d'activité</div>
-    <div class="type-grid" id="type-grid"></div>
+    <div class="field-label">Activités du jour</div>
+    <div id="activity-list"></div>
+    <button class="add-exercise-btn" id="add-activity-btn" style="margin-top:8px;">+ Ajouter une activité</button>
 
-    <div class="field-label">Durée</div>
-    <div class="duration-row">
-      <input type="range" id="duration-slider" min="0" max="180" step="5" value="0">
-      <div class="duration-value"><span id="duration-num">0</span> <span>min</span></div>
-    </div>
-
-    <div class="field-label">Exercices réalisés</div>
-    <div class="exercise-list" id="exercise-list"></div>
-    <button class="add-exercise-btn" id="add-exercise-btn" style="margin-top:8px;">+ Ajouter un exercice</button>
-
-    <div class="exercise-form" id="exercise-form">
-      <input type="text" id="ex-name" placeholder="Nom de l'exercice (ex: Squat)">
-      <div class="row3">
-        <input type="number" id="ex-sets" placeholder="Séries" inputmode="numeric">
-        <input type="number" id="ex-reps" placeholder="Reps" inputmode="numeric">
-        <input type="number" id="ex-weight" placeholder="Poids (kg)" inputmode="numeric">
+    <div class="exercise-form" id="activity-form">
+      <div class="type-grid" id="type-grid"></div>
+      <div class="duration-row" style="margin-top:10px;">
+        <input type="range" id="act-duration" min="0" max="180" step="5" value="30">
+        <div class="duration-value"><span id="act-duration-num">30</span> <span>min</span></div>
       </div>
       <div class="exercise-form-actions">
-        <button class="btn-cancel" id="ex-cancel">Annuler</button>
-        <button class="btn-confirm" id="ex-confirm">Ajouter</button>
+        <button class="btn-cancel" id="act-cancel">Annuler</button>
+        <button class="btn-confirm" id="act-confirm">Ajouter</button>
+      </div>
+    </div>
+
+    <div class="field-label">Données du jour <span id="health-badge" style="display:none;font-size:10px;background:var(--accent-soft);color:var(--accent);padding:2px 8px;border-radius:8px;font-weight:700;">Santé</span></div>
+    <div class="health-grid">
+      <div class="health-field">
+        <span class="health-icon">🔥</span>
+        <input type="number" id="health-calories" placeholder="0" inputmode="numeric">
+        <span class="health-unit">kcal</span>
+      </div>
+      <div class="health-field">
+        <span class="health-icon">❤️</span>
+        <input type="number" id="health-fc" placeholder="0" inputmode="numeric">
+        <span class="health-unit">bpm moy.</span>
+      </div>
+      <div class="health-field">
+        <span class="health-icon">📍</span>
+        <input type="number" id="health-distance" placeholder="0" inputmode="decimal" step="0.1">
+        <span class="health-unit">km</span>
+      </div>
+      <div class="health-field">
+        <span class="health-icon">👟</span>
+        <input type="number" id="health-pas" placeholder="0" inputmode="numeric">
+        <span class="health-unit">pas</span>
       </div>
     </div>
 
@@ -626,7 +848,7 @@
     </div>
 
     <div class="field-label">Note</div>
-    <textarea class="note-field" id="note-field" placeholder="Un commentaire sur ta séance..."></textarea>
+    <textarea class="note-field" id="note-field" placeholder="Un commentaire sur ta journée..."></textarea>
 
     <div class="sheet-actions">
       <button class="btn-delete" id="btn-delete" title="Supprimer">🗑</button>
@@ -635,17 +857,55 @@
   </div>
 </div>
 
+<div class="exercise-form-overlay" id="ex-overlay">
+  <div class="ex-modal">
+    <div style="font-size:14px;font-weight:700;margin-bottom:12px;" id="ex-modal-title">Ajouter un exercice</div>
+    <input type="text" id="ex-name" placeholder="Nom de l'exercice (ex: Squat)">
+    <div class="row3" style="margin-top:8px;">
+      <input type="number" id="ex-sets" placeholder="Séries" inputmode="numeric">
+      <input type="number" id="ex-reps" placeholder="Reps" inputmode="numeric">
+      <input type="number" id="ex-weight" placeholder="Poids" inputmode="numeric">
+    </div>
+    <div class="exercise-form-actions" style="margin-top:12px;">
+      <button class="btn-cancel" id="ex-cancel">Annuler</button>
+      <button class="btn-confirm" id="ex-confirm">Ajouter</button>
+    </div>
+  </div>
+</div>
+
 <div class="toast" id="toast">Enregistré</div>
 
 <script>
   const STORAGE_KEY = 'sport-days-v2';
-  let sportDays = {}; // { 'YYYY-MM-DD': { type, duration, exercises: [], feel, note } }
+  const WEIGHT_STORAGE_KEY = 'sport-weight-v1';
+  let sportDays = {}; // { 'YYYY-MM-DD': { type, duration, exercises: [], feel, note, health } }
+  let weightEntries = {}; // { 'YYYY-MM-DD': 72.4 }
+
+  function loadWeightData() {
+    try {
+      const raw = localStorage.getItem(WEIGHT_STORAGE_KEY);
+      weightEntries = raw ? JSON.parse(raw) : {};
+    } catch (e) {
+      weightEntries = {};
+    }
+  }
+
+  function saveWeightData() {
+    try {
+      localStorage.setItem(WEIGHT_STORAGE_KEY, JSON.stringify(weightEntries));
+      return true;
+    } catch (e) {
+      console.error('Erreur de sauvegarde poids', e);
+      return false;
+    }
+  }
+
+  function addWeightEntry(dateKey, value) {
+    weightEntries[dateKey] = value;
+  }
   let viewDate = new Date();
   viewDate.setDate(1);
   let currentEditKey = null;
-  let currentExercises = [];
-  let currentFeel = null;
-  let currentType = null;
 
   const WEEKLY_GOAL = 3;
 
@@ -671,6 +931,34 @@
 
   document.getElementById('today-str').textContent = fmtDateLong(todayObj).replace(/^./, c => c.toUpperCase());
 
+  // Convertit les entrées de l'ancien format (un seul type + une durée à plat)
+  // vers le nouveau modèle à blocs d'activité. Sans effet sur les entrées déjà migrées.
+  function migrateEntries() {
+    let changed = false;
+    for (const key in sportDays) {
+      const e = sportDays[key];
+      if (e && !e.activities) {
+        const acts = [];
+        if (e.type || e.duration || (e.exercises && e.exercises.length)) {
+          acts.push({
+            type: e.type || 'autre',
+            duration: e.duration || 0,
+            exercises: e.exercises || []
+          });
+        }
+        sportDays[key] = {
+          activities: acts,
+          health: e.health || {},
+          feel: e.feel || null,
+          note: e.note || '',
+          healthImported: e.healthImported || false
+        };
+        changed = true;
+      }
+    }
+    if (changed) saveData();
+  }
+
   function loadData() {
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
@@ -679,6 +967,7 @@
       console.error('Erreur de lecture localStorage', e);
       sportDays = {};
     }
+    migrateEntries();
     render();
   }
 
@@ -778,13 +1067,16 @@
 
       if (entry) {
         btn.classList.add('done');
-        const typeObj = TYPES.find(t => t.id === entry.type);
-        if (typeObj) {
-          const iconSpan = document.createElement('span');
-          iconSpan.className = 'type-icon';
-          iconSpan.textContent = typeObj.emoji;
-          btn.appendChild(iconSpan);
+        const acts = entry.activities || [];
+        const iconSpan = document.createElement('span');
+        iconSpan.className = 'type-icon';
+        if (acts.length > 1) {
+          iconSpan.textContent = acts.length + '×';
+        } else if (acts.length === 1) {
+          const typeObj = TYPES.find(t => t.id === acts[0].type);
+          if (typeObj) iconSpan.textContent = typeObj.emoji;
         }
+        if (iconSpan.textContent) btn.appendChild(iconSpan);
       }
       if (key === todayKey) btn.classList.add('today');
       if (dateObj > todayObj && key !== todayKey) btn.classList.add('future');
@@ -795,48 +1087,26 @@
   }
 
   // ---- Sheet logic ----
+  // Modèle : sportDays[key] = { activities: [{type, duration, exercises:[]}], health:{}, feel, note }
+
+  let currentActivities = [];
+  let currentFeel = null;
+  let pendingType = null;
+  let exTargetActivityIdx = null;
+  let expandedIdx = null;
 
   function renderTypeGrid() {
     const grid = document.getElementById('type-grid');
     grid.innerHTML = '';
     TYPES.forEach(t => {
       const chip = document.createElement('div');
-      chip.className = 'type-chip' + (currentType === t.id ? ' selected' : '');
-      chip.innerHTML = `<span class="emoji">${t.emoji}</span>${t.label}`;
+      chip.className = 'type-chip' + (pendingType === t.id ? ' selected' : '');
+      chip.innerHTML = '<span class="emoji">' + t.emoji + '</span>' + t.label;
       chip.addEventListener('click', () => {
-        currentType = t.id;
+        pendingType = t.id;
         renderTypeGrid();
       });
       grid.appendChild(chip);
-    });
-  }
-
-  function renderExerciseList() {
-    const list = document.getElementById('exercise-list');
-    list.innerHTML = '';
-    if (currentExercises.length === 0) {
-      list.style.display = 'none';
-      return;
-    }
-    list.style.display = 'block';
-    currentExercises.forEach((ex, idx) => {
-      const row = document.createElement('div');
-      row.className = 'exercise-row';
-      let meta = '';
-      if (ex.sets || ex.reps) meta += `${ex.sets || '?'} x ${ex.reps || '?'}`;
-      if (ex.weight) meta += (meta ? ' · ' : '') + `${ex.weight}kg`;
-      row.innerHTML = `
-        <div><div>${escapeHtml(ex.name)}</div><div class="ex-meta">${meta}</div></div>
-        <button class="ex-remove" data-idx="${idx}">✕</button>
-      `;
-      list.appendChild(row);
-    });
-    list.querySelectorAll('.ex-remove').forEach(btn => {
-      btn.addEventListener('click', (e) => {
-        const idx = parseInt(e.target.dataset.idx);
-        currentExercises.splice(idx, 1);
-        renderExerciseList();
-      });
     });
   }
 
@@ -844,6 +1114,104 @@
     const div = document.createElement('div');
     div.textContent = str;
     return div.innerHTML;
+  }
+
+  function exMetaText(ex) {
+    let meta = '';
+    if (ex.sets || ex.reps) meta += (ex.sets || '?') + ' x ' + (ex.reps || '?');
+    if (ex.weight) meta += (meta ? ' · ' : '') + ex.weight + 'kg';
+    return meta;
+  }
+
+  function renderActivityList() {
+    const list = document.getElementById('activity-list');
+    list.innerHTML = '';
+
+    if (currentActivities.length === 0) {
+      const empty = document.createElement('div');
+      empty.style.cssText = 'font-size:13px;color:var(--ink-soft);padding:12px 0;text-align:center;';
+      empty.textContent = 'Aucune activité pour ce jour.';
+      list.appendChild(empty);
+      return;
+    }
+
+    currentActivities.forEach((act, idx) => {
+      const typeObj = TYPES.find(t => t.id === act.type) || TYPES[TYPES.length - 1];
+      const block = document.createElement('div');
+      block.className = 'activity-block' + (expandedIdx === idx ? ' expanded' : '');
+
+      const exCount = (act.exercises || []).length;
+      let metaText = act.duration + ' min';
+      if (exCount) metaText += ' · ' + exCount + ' exercice' + (exCount > 1 ? 's' : '');
+
+      const head = document.createElement('div');
+      head.className = 'activity-head';
+      head.innerHTML =
+        '<div class="activity-head-left">' +
+          '<span class="activity-emoji">' + typeObj.emoji + '</span>' +
+          '<div><div class="activity-name">' + typeObj.label + '</div>' +
+          '<div class="activity-meta">' + metaText + '</div></div>' +
+        '</div>' +
+        '<div class="activity-actions">' +
+          '<button class="activity-remove" data-remove="' + idx + '">✕</button>' +
+          '<span class="activity-chevron">' + (expandedIdx === idx ? '▲' : '▼') + '</span>' +
+        '</div>';
+      block.appendChild(head);
+
+      const body = document.createElement('div');
+      body.className = 'activity-body';
+      (act.exercises || []).forEach((ex, exIdx) => {
+        const row = document.createElement('div');
+        row.className = 'act-ex-row';
+        row.innerHTML =
+          '<div><div>' + escapeHtml(ex.name) + '</div>' +
+          '<div class="ex-meta">' + exMetaText(ex) + '</div></div>' +
+          '<button class="ex-remove" data-act="' + idx + '" data-ex="' + exIdx + '">✕</button>';
+        body.appendChild(row);
+      });
+
+      const addBtn = document.createElement('button');
+      addBtn.className = 'add-ex-mini';
+      addBtn.textContent = '+ Exercice';
+      addBtn.dataset.addex = idx;
+      body.appendChild(addBtn);
+
+      block.appendChild(body);
+      list.appendChild(block);
+
+      head.addEventListener('click', (e) => {
+        if (e.target.dataset.remove !== undefined) return;
+        expandedIdx = (expandedIdx === idx) ? null : idx;
+        renderActivityList();
+      });
+    });
+
+    list.querySelectorAll('[data-remove]').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const i = parseInt(e.target.dataset.remove);
+        currentActivities.splice(i, 1);
+        if (expandedIdx === i) expandedIdx = null;
+        else if (expandedIdx > i) expandedIdx--;
+        renderActivityList();
+      });
+    });
+
+    list.querySelectorAll('[data-addex]').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        exTargetActivityIdx = parseInt(e.target.dataset.addex);
+        openExerciseModal();
+      });
+    });
+
+    list.querySelectorAll('.ex-remove').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        const a = parseInt(e.target.dataset.act);
+        const x = parseInt(e.target.dataset.ex);
+        currentActivities[a].exercises.splice(x, 1);
+        renderActivityList();
+      });
+    });
   }
 
   function renderFeelGrid() {
@@ -855,19 +1223,26 @@
   function openSheet(key) {
     currentEditKey = key;
     const entry = sportDays[key] || {};
-    currentType = entry.type || null;
-    currentExercises = entry.exercises ? [...entry.exercises] : [];
+
+    currentActivities = entry.activities ? JSON.parse(JSON.stringify(entry.activities)) : [];
     currentFeel = entry.feel || null;
+    expandedIdx = null;
+    pendingType = null;
 
     document.getElementById('sheet-date').textContent = fmtDateLong(new Date(key + 'T00:00:00'));
-    document.getElementById('duration-slider').value = entry.duration || 0;
-    document.getElementById('duration-num').textContent = entry.duration || 0;
     document.getElementById('note-field').value = entry.note || '';
-    document.getElementById('btn-delete').style.visibility = sportDays[key] ? 'visible' : 'hidden';
-    document.getElementById('exercise-form').classList.remove('open');
 
-    renderTypeGrid();
-    renderExerciseList();
+    const health = entry.health || {};
+    document.getElementById('health-calories').value = health.calories || '';
+    document.getElementById('health-fc').value = health.fc || '';
+    document.getElementById('health-distance').value = health.distance || '';
+    document.getElementById('health-pas').value = health.pas || '';
+    document.getElementById('health-badge').style.display = entry.healthImported ? 'inline' : 'none';
+
+    document.getElementById('btn-delete').style.visibility = sportDays[key] ? 'visible' : 'hidden';
+    document.getElementById('activity-form').classList.remove('open');
+
+    renderActivityList();
     renderFeelGrid();
 
     document.getElementById('sheet-overlay').classList.add('open');
@@ -883,60 +1258,118 @@
     if (e.target.id === 'sheet-overlay') closeSheet();
   });
 
-  document.getElementById('duration-slider').addEventListener('input', (e) => {
-    document.getElementById('duration-num').textContent = e.target.value;
+  // --- Ajout d'activité ---
+  document.getElementById('add-activity-btn').addEventListener('click', () => {
+    pendingType = null;
+    document.getElementById('act-duration').value = 30;
+    document.getElementById('act-duration-num').textContent = 30;
+    renderTypeGrid();
+    document.getElementById('activity-form').classList.add('open');
   });
 
-  document.querySelectorAll('.feel-chip').forEach(chip => {
-    chip.addEventListener('click', () => {
-      currentFeel = chip.dataset.feel;
-      renderFeelGrid();
+  document.getElementById('act-duration').addEventListener('input', (e) => {
+    document.getElementById('act-duration-num').textContent = e.target.value;
+  });
+
+  document.getElementById('act-cancel').addEventListener('click', () => {
+    document.getElementById('activity-form').classList.remove('open');
+    pendingType = null;
+  });
+
+  document.getElementById('act-confirm').addEventListener('click', () => {
+    if (!pendingType) {
+      showToast('Choisis un type d\'activité');
+      return;
+    }
+    currentActivities.push({
+      type: pendingType,
+      duration: parseInt(document.getElementById('act-duration').value) || 0,
+      exercises: []
     });
+    document.getElementById('activity-form').classList.remove('open');
+    pendingType = null;
+    renderActivityList();
   });
 
-  document.getElementById('add-exercise-btn').addEventListener('click', () => {
-    document.getElementById('exercise-form').classList.add('open');
-    document.getElementById('ex-name').focus();
-  });
-
-  document.getElementById('ex-cancel').addEventListener('click', () => {
-    document.getElementById('exercise-form').classList.remove('open');
-    clearExerciseForm();
-  });
-
-  function clearExerciseForm() {
+  // --- Modale exercice ---
+  function openExerciseModal() {
     document.getElementById('ex-name').value = '';
     document.getElementById('ex-sets').value = '';
     document.getElementById('ex-reps').value = '';
     document.getElementById('ex-weight').value = '';
+    document.getElementById('ex-name').style.borderColor = '';
+    document.getElementById('ex-overlay').classList.add('open');
+    setTimeout(() => document.getElementById('ex-name').focus(), 100);
   }
 
+  function closeExerciseModal() {
+    document.getElementById('ex-overlay').classList.remove('open');
+    exTargetActivityIdx = null;
+  }
+
+  document.getElementById('ex-cancel').addEventListener('click', closeExerciseModal);
+  document.getElementById('ex-overlay').addEventListener('click', (e) => {
+    if (e.target.id === 'ex-overlay') closeExerciseModal();
+  });
+
   document.getElementById('ex-confirm').addEventListener('click', () => {
-    const name = document.getElementById('ex-name').value.trim();
+    const nameEl = document.getElementById('ex-name');
+    const name = nameEl.value.trim();
     if (!name) {
-      document.getElementById('ex-name').style.borderColor = 'var(--danger)';
+      nameEl.style.borderColor = 'var(--danger)';
       return;
     }
-    currentExercises.push({
+    if (exTargetActivityIdx === null) return;
+    currentActivities[exTargetActivityIdx].exercises.push({
       name,
       sets: document.getElementById('ex-sets').value,
       reps: document.getElementById('ex-reps').value,
       weight: document.getElementById('ex-weight').value
     });
-    clearExerciseForm();
-    document.getElementById('exercise-form').classList.remove('open');
-    renderExerciseList();
+    expandedIdx = exTargetActivityIdx;
+    closeExerciseModal();
+    renderActivityList();
   });
 
+  document.getElementById('ex-name').addEventListener('input', (e) => {
+    e.target.style.borderColor = '';
+  });
+
+  // --- Ressenti ---
+  document.querySelectorAll('.feel-chip').forEach(chip => {
+    chip.addEventListener('click', () => {
+      currentFeel = (currentFeel === chip.dataset.feel) ? null : chip.dataset.feel;
+      renderFeelGrid();
+    });
+  });
+
+  // --- Enregistrer / supprimer ---
   document.getElementById('btn-save').addEventListener('click', () => {
     if (!currentEditKey) return;
-    sportDays[currentEditKey] = {
-      type: currentType,
-      duration: parseInt(document.getElementById('duration-slider').value) || 0,
-      exercises: currentExercises,
-      feel: currentFeel,
-      note: document.getElementById('note-field').value.trim()
+
+    const note = document.getElementById('note-field').value.trim();
+    const healthVals = {
+      calories: document.getElementById('health-calories').value || null,
+      fc: document.getElementById('health-fc').value || null,
+      distance: document.getElementById('health-distance').value || null,
+      pas: document.getElementById('health-pas').value || null
     };
+    const hasHealth = Object.values(healthVals).some(v => v);
+
+    if (currentActivities.length === 0 && !hasHealth && !note && !currentFeel) {
+      showToast('Ajoute au moins une activité');
+      return;
+    }
+
+    const prevEntry = sportDays[currentEditKey] || {};
+    sportDays[currentEditKey] = {
+      activities: currentActivities,
+      health: healthVals,
+      feel: currentFeel,
+      note: note,
+      healthImported: prevEntry.healthImported || false
+    };
+
     if (saveData()) {
       showToast('Séance enregistrée ✓');
       closeSheet();
@@ -951,6 +1384,124 @@
     showToast('Séance supprimée');
     closeSheet();
     render();
+  });
+
+  // ---- Tabs ----
+  document.querySelectorAll('.tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      const tab = btn.dataset.tab;
+      document.getElementById('tab-calendar').style.display = tab === 'calendar' ? 'block' : 'none';
+      document.getElementById('tab-body').style.display = tab === 'body' ? 'block' : 'none';
+      if (tab === 'body') renderWeightTab();
+    });
+  });
+
+  // ---- Suivi corporel ----
+  function renderWeightTab() {
+    const sortedKeys = Object.keys(weightEntries).sort();
+    const current = sortedKeys.length ? weightEntries[sortedKeys[sortedKeys.length - 1]] : null;
+    document.getElementById('weight-current').textContent = current !== null ? current.toFixed(1) : '—';
+
+    // évolution sur 30 jours
+    const cutoff = new Date(todayObj);
+    cutoff.setDate(cutoff.getDate() - 30);
+    const cutoffKey = fmtKey(cutoff);
+    const pastKeys = sortedKeys.filter(k => k <= cutoffKey);
+    const changeEl = document.getElementById('weight-change');
+    if (current !== null && pastKeys.length) {
+      const pastVal = weightEntries[pastKeys[pastKeys.length - 1]];
+      const diff = current - pastVal;
+      changeEl.textContent = (diff >= 0 ? '+' : '') + diff.toFixed(1);
+    } else {
+      changeEl.textContent = '—';
+    }
+
+    renderWeightChart(sortedKeys);
+    renderWeightHistory(sortedKeys);
+  }
+
+  function renderWeightChart(sortedKeys) {
+    const svg = document.getElementById('weight-chart');
+    svg.innerHTML = '';
+    const recentKeys = sortedKeys.slice(-30);
+    if (recentKeys.length < 2) {
+      const txt = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+      txt.setAttribute('x', '170');
+      txt.setAttribute('y', '84');
+      txt.setAttribute('text-anchor', 'middle');
+      txt.setAttribute('font-size', '12');
+      txt.setAttribute('fill', '#8A8378');
+      txt.textContent = 'Pas assez de données pour une courbe';
+      svg.appendChild(txt);
+      return;
+    }
+
+    const values = recentKeys.map(k => weightEntries[k]);
+    const min = Math.min(...values);
+    const max = Math.max(...values);
+    const range = (max - min) || 1;
+    const padY = 20, padX = 10, w = 340, h = 160;
+
+    const points = recentKeys.map((k, i) => {
+      const x = padX + (i / (recentKeys.length - 1)) * (w - padX * 2);
+      const y = h - padY - ((weightEntries[k] - min) / range) * (h - padY * 2);
+      return [x, y];
+    });
+
+    const pathD = points.map((p, i) => (i === 0 ? 'M' : 'L') + p[0].toFixed(1) + ',' + p[1].toFixed(1)).join(' ');
+    const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    path.setAttribute('d', pathD);
+    path.setAttribute('fill', 'none');
+    path.setAttribute('stroke', '#1B4332');
+    path.setAttribute('stroke-width', '2.5');
+    path.setAttribute('stroke-linecap', 'round');
+    path.setAttribute('stroke-linejoin', 'round');
+    svg.appendChild(path);
+
+    points.forEach(p => {
+      const c = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+      c.setAttribute('cx', p[0]);
+      c.setAttribute('cy', p[1]);
+      c.setAttribute('r', '2.5');
+      c.setAttribute('fill', '#1B4332');
+      svg.appendChild(c);
+    });
+  }
+
+  function renderWeightHistory(sortedKeys) {
+    const container = document.getElementById('weight-history');
+    container.innerHTML = '';
+    const reversed = [...sortedKeys].reverse().slice(0, 20);
+    if (reversed.length === 0) {
+      container.style.display = 'none';
+      return;
+    }
+    container.style.display = 'block';
+    reversed.forEach(key => {
+      const row = document.createElement('div');
+      row.className = 'exercise-row';
+      const dateLabel = new Date(key + 'T00:00:00').toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' });
+      row.innerHTML = `
+        <div>${dateLabel}</div>
+        <div style="font-weight:700;">${weightEntries[key].toFixed(1)} kg</div>
+      `;
+      container.appendChild(row);
+    });
+  }
+
+  document.getElementById('weight-add-btn').addEventListener('click', () => {
+    const val = parseFloat(document.getElementById('weight-input').value);
+    if (!Number.isFinite(val) || val <= 0) {
+      showToast('Entre un poids valide');
+      return;
+    }
+    addWeightEntry(fmtKey(new Date()), val);
+    saveWeightData();
+    document.getElementById('weight-input').value = '';
+    renderWeightTab();
+    showToast('Pesée enregistrée ✓');
   });
 
   // ---- Export ----
@@ -981,7 +1532,90 @@
     render();
   });
 
+  // ---- Import depuis Raccourcis / Health via URL ----
+  // Format attendu :
+  // ?importer=course&duree=32&date=2026-09-09&calories=310&fc=142&distance=5.2&pas=6400&poids=72.4
+  // - importer : id du type de sport (muscu, course, velo, yoga, natation, autre) — optionnel, défaut "autre"
+  // - duree : minutes (entier) — optionnel
+  // - date : YYYY-MM-DD — optionnel, défaut aujourd'hui
+  // - calories : kcal actives — optionnel
+  // - fc : fréquence cardiaque moyenne (bpm) — optionnel
+  // - distance : km (décimal) — optionnel
+  // - pas : nombre de pas — optionnel
+  // - poids : kg (décimal) — optionnel, va dans le suivi corporel séparé, pas dans la fiche du jour
+  // Si un jour existe déjà à cette date, on ne fait qu'ajouter/mettre à jour les champs fournis,
+  // sans écraser les exercices, le ressenti ou la note déjà saisis.
+  function importFromUrl() {
+    const params = new URLSearchParams(window.location.search);
+    const hasSportData = params.has('importer') || params.has('duree') ||
+      params.has('calories') || params.has('fc') || params.has('distance') || params.has('pas');
+    const hasWeight = params.has('poids');
+
+    if (!hasSportData && !hasWeight) return false;
+
+    const dateParam = params.get('date');
+    const key = (dateParam && /^\d{4}-\d{2}-\d{2}$/.test(dateParam)) ? dateParam : fmtKey(new Date());
+    let touchedKey = null;
+
+    if (hasSportData) {
+      const typeParam = params.get('importer');
+      const dureeParam = parseInt(params.get('duree'));
+      const existing = sportDays[key] || { activities: [], feel: null, note: '', health: {} };
+      const prevHealth = existing.health || {};
+      const activities = existing.activities ? [...existing.activities] : [];
+
+      // Ajoute un bloc d'activité seulement si le raccourci a fourni un type ou une durée,
+      // et seulement si un bloc identique n'existe pas déjà (évite les doublons si
+      // l'automatisation se déclenche deux fois le même jour).
+      if (typeParam || Number.isFinite(dureeParam)) {
+        const validType = TYPES.some(t => t.id === typeParam) ? typeParam : 'autre';
+        const duree = Number.isFinite(dureeParam) ? dureeParam : 0;
+        const alreadyThere = activities.some(a => a.type === validType && a.duration === duree && a.imported);
+        if (!alreadyThere) {
+          activities.push({ type: validType, duration: duree, exercises: [], imported: true });
+        }
+      }
+
+      sportDays[key] = {
+        ...existing,
+        activities: activities,
+        note: existing.note || '',
+        health: {
+          calories: params.get('calories') || prevHealth.calories || null,
+          fc: params.get('fc') || prevHealth.fc || null,
+          distance: params.get('distance') || prevHealth.distance || null,
+          pas: params.get('pas') || prevHealth.pas || null
+        },
+        healthImported: true
+      };
+      touchedKey = key;
+    }
+
+    if (hasWeight) {
+      const poidsVal = parseFloat(params.get('poids'));
+      if (Number.isFinite(poidsVal)) {
+        addWeightEntry(key, poidsVal);
+      }
+    }
+
+    saveData();
+    saveWeightData();
+
+    // Nettoie l'URL pour éviter un ré-import si la page est rafraîchie
+    const cleanUrl = window.location.origin + window.location.pathname;
+    window.history.replaceState({}, '', cleanUrl);
+
+    return touchedKey || key;
+  }
+
+  loadWeightData();
   loadData();
+
+  const importedKey = importFromUrl();
+  if (importedKey) {
+    render();
+    showToast('Séance importée depuis Santé ✓');
+  }
 </script>
 </body>
 </html>
