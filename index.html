@@ -426,6 +426,53 @@
     white-space: nowrap;
   }
 
+  /* Metric tabs + import */
+  .metric-tabs {
+    display: flex;
+    gap: 6px;
+    overflow-x: auto;
+    margin: 18px 0 10px;
+    padding-bottom: 4px;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .metric-tabs::-webkit-scrollbar { display: none; }
+
+  .metric-chip {
+    flex: 0 0 auto;
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 20px;
+    padding: 7px 14px;
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--ink-soft);
+    cursor: pointer;
+    white-space: nowrap;
+  }
+
+  .metric-chip.active {
+    background: var(--done);
+    border-color: var(--done);
+    color: white;
+  }
+
+  .import-btn {
+    display: block;
+    width: 100%;
+    background: none;
+    border: 1.5px dashed var(--accent);
+    color: var(--accent);
+    border-radius: 12px;
+    padding: 12px;
+    font-size: 13px;
+    font-weight: 700;
+    text-align: center;
+    cursor: pointer;
+  }
+
+  .import-btn:active { background: var(--accent-soft); }
+
   /* Activity blocks */
   .activity-block {
     background: var(--card);
@@ -768,7 +815,7 @@
     <div class="stat-row">
       <div class="stat">
         <div class="num" id="weight-current">—</div>
-        <div class="label">Poids actuel (kg)</div>
+        <div class="label" id="weight-current-label">Poids actuel (kg)</div>
       </div>
       <div class="stat streak">
         <div class="num" id="weight-change">—</div>
@@ -776,16 +823,24 @@
       </div>
     </div>
 
-    <div class="field-label">Ajouter une pesée</div>
-    <div class="health-field" style="margin-bottom:20px;">
+    <div class="metric-tabs" id="metric-tabs"></div>
+
+    <svg id="weight-chart" viewBox="0 0 340 170" style="width:100%;height:170px;background:var(--card);border:1px solid var(--line);border-radius:14px;margin-bottom:4px;"></svg>
+
+    <div class="field-label">Importer depuis FitDays</div>
+    <label class="import-btn" for="csv-input">
+      📂 Choisir un fichier Fitdays-….csv
+    </label>
+    <input type="file" id="csv-input" accept=".csv,text/csv" style="display:none;">
+    <div id="import-status" style="font-size:12px;color:var(--ink-soft);margin-top:8px;line-height:1.5;"></div>
+
+    <div class="field-label">Ajouter une pesée manuelle</div>
+    <div class="health-field" style="margin-bottom:4px;">
       <span class="health-icon">⚖️</span>
       <input type="number" id="weight-input" placeholder="72.4" inputmode="decimal" step="0.1">
       <span class="health-unit">kg</span>
       <button id="weight-add-btn" style="background:var(--done);color:white;border:none;border-radius:10px;padding:8px 14px;font-size:13px;font-weight:700;margin-left:6px;">Ajouter</button>
     </div>
-
-    <div class="field-label">Courbe (30 derniers jours)</div>
-    <svg id="weight-chart" viewBox="0 0 340 160" style="width:100%;height:160px;background:var(--card);border:1px solid var(--line);border-radius:14px;"></svg>
 
     <div class="field-label">Historique</div>
     <div class="exercise-list" id="weight-history"></div>
@@ -878,8 +933,10 @@
 <script>
   const STORAGE_KEY = 'sport-days-v2';
   const WEIGHT_STORAGE_KEY = 'sport-weight-v1';
-  let sportDays = {}; // { 'YYYY-MM-DD': { type, duration, exercises: [], feel, note, health } }
-  let weightEntries = {}; // { 'YYYY-MM-DD': 72.4 }
+  let sportDays = {}; // { 'YYYY-MM-DD': { activities: [...], health, feel, note } }
+  // { 'YYYY-MM-DD': { poids, imc, graisse, muscle, masseMusc, eau, viscerale } }
+  // Les anciennes entrées étaient un simple nombre : migrées au chargement.
+  let weightEntries = {};
 
   function loadWeightData() {
     try {
@@ -888,6 +945,14 @@
     } catch (e) {
       weightEntries = {};
     }
+    let migrated = false;
+    for (const k in weightEntries) {
+      if (typeof weightEntries[k] === 'number') {
+        weightEntries[k] = { poids: weightEntries[k] };
+        migrated = true;
+      }
+    }
+    if (migrated) saveWeightData();
   }
 
   function saveWeightData() {
@@ -901,7 +966,15 @@
   }
 
   function addWeightEntry(dateKey, value) {
-    weightEntries[dateKey] = value;
+    const obj = (typeof value === 'number') ? { poids: value } : value;
+    weightEntries[dateKey] = { ...(weightEntries[dateKey] || {}), ...obj };
+  }
+
+  function getMetric(dateKey, metric) {
+    const e = weightEntries[dateKey];
+    if (!e) return null;
+    const v = e[metric];
+    return (typeof v === 'number' && Number.isFinite(v)) ? v : null;
   }
   let viewDate = new Date();
   viewDate.setDate(1);
@@ -1399,60 +1472,126 @@
   });
 
   // ---- Suivi corporel ----
-  function renderWeightTab() {
-    const sortedKeys = Object.keys(weightEntries).sort();
-    const current = sortedKeys.length ? weightEntries[sortedKeys[sortedKeys.length - 1]] : null;
-    document.getElementById('weight-current').textContent = current !== null ? current.toFixed(1) : '—';
 
-    // évolution sur 30 jours
+  const METRICS = [
+    { id: 'poids',      label: 'Poids',      unit: 'kg', decimals: 1 },
+    { id: 'imc',        label: 'IMC',        unit: '',   decimals: 1 },
+    { id: 'graisse',    label: 'Graisse',    unit: '%',  decimals: 1 },
+    { id: 'muscle',     label: 'Muscle',     unit: '%',  decimals: 1 },
+    { id: 'masseMusc',  label: 'Masse musc.',unit: 'kg', decimals: 1 },
+    { id: 'eau',        label: 'Eau',        unit: '%',  decimals: 1 },
+    { id: 'viscerale',  label: 'Viscérale',  unit: '',   decimals: 1 }
+  ];
+
+  let activeMetric = 'poids';
+
+  function metricDef(id) {
+    return METRICS.find(m => m.id === id) || METRICS[0];
+  }
+
+  function renderMetricTabs() {
+    const box = document.getElementById('metric-tabs');
+    box.innerHTML = '';
+    // n'affiche que les mesures pour lesquelles on a au moins une valeur
+    const available = METRICS.filter(m =>
+      Object.keys(weightEntries).some(k => getMetric(k, m.id) !== null)
+    );
+    const list = available.length ? available : [METRICS[0]];
+    if (!list.some(m => m.id === activeMetric)) activeMetric = list[0].id;
+
+    list.forEach(m => {
+      const chip = document.createElement('div');
+      chip.className = 'metric-chip' + (m.id === activeMetric ? ' active' : '');
+      chip.textContent = m.label;
+      chip.addEventListener('click', () => {
+        activeMetric = m.id;
+        renderWeightTab();
+      });
+      box.appendChild(chip);
+    });
+  }
+
+  function renderWeightTab() {
+    renderMetricTabs();
+    const def = metricDef(activeMetric);
+
+    // dates ayant une valeur pour la mesure sélectionnée
+    const keys = Object.keys(weightEntries)
+      .filter(k => getMetric(k, activeMetric) !== null)
+      .sort();
+
+    const current = keys.length ? getMetric(keys[keys.length - 1], activeMetric) : null;
+    document.getElementById('weight-current').textContent =
+      current !== null ? current.toFixed(def.decimals) : '—';
+    document.getElementById('weight-current-label').textContent =
+      def.label + (def.unit ? ' (' + def.unit + ')' : '');
+
     const cutoff = new Date(todayObj);
     cutoff.setDate(cutoff.getDate() - 30);
     const cutoffKey = fmtKey(cutoff);
-    const pastKeys = sortedKeys.filter(k => k <= cutoffKey);
+    const pastKeys = keys.filter(k => k <= cutoffKey);
     const changeEl = document.getElementById('weight-change');
     if (current !== null && pastKeys.length) {
-      const pastVal = weightEntries[pastKeys[pastKeys.length - 1]];
+      const pastVal = getMetric(pastKeys[pastKeys.length - 1], activeMetric);
       const diff = current - pastVal;
-      changeEl.textContent = (diff >= 0 ? '+' : '') + diff.toFixed(1);
+      changeEl.textContent = (diff >= 0 ? '+' : '') + diff.toFixed(def.decimals);
     } else {
       changeEl.textContent = '—';
     }
 
-    renderWeightChart(sortedKeys);
-    renderWeightHistory(sortedKeys);
+    renderWeightChart(keys, def);
+    renderWeightHistory(keys, def);
   }
 
-  function renderWeightChart(sortedKeys) {
+  function renderWeightChart(keys, def) {
     const svg = document.getElementById('weight-chart');
     svg.innerHTML = '';
-    const recentKeys = sortedKeys.slice(-30);
-    if (recentKeys.length < 2) {
+    const recent = keys.slice(-30);
+
+    if (recent.length < 2) {
       const txt = document.createElementNS('http://www.w3.org/2000/svg', 'text');
       txt.setAttribute('x', '170');
-      txt.setAttribute('y', '84');
+      txt.setAttribute('y', '88');
       txt.setAttribute('text-anchor', 'middle');
       txt.setAttribute('font-size', '12');
       txt.setAttribute('fill', '#8A8378');
-      txt.textContent = 'Pas assez de données pour une courbe';
+      txt.textContent = recent.length ? 'Une seule mesure — la courbe arrive' : 'Aucune donnée';
       svg.appendChild(txt);
       return;
     }
 
-    const values = recentKeys.map(k => weightEntries[k]);
+    const values = recent.map(k => getMetric(k, def.id));
     const min = Math.min(...values);
     const max = Math.max(...values);
     const range = (max - min) || 1;
-    const padY = 20, padX = 10, w = 340, h = 160;
+    const padTop = 22, padBottom = 30, padX = 34, w = 340, h = 170;
 
-    const points = recentKeys.map((k, i) => {
-      const x = padX + (i / (recentKeys.length - 1)) * (w - padX * 2);
-      const y = h - padY - ((weightEntries[k] - min) / range) * (h - padY * 2);
+    // graduations min / max
+    [[max, padTop], [min, h - padBottom]].forEach(([val, y]) => {
+      const lbl = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+      lbl.setAttribute('x', '6');
+      lbl.setAttribute('y', y + 4);
+      lbl.setAttribute('font-size', '10');
+      lbl.setAttribute('fill', '#8A8378');
+      lbl.textContent = val.toFixed(def.decimals);
+      svg.appendChild(lbl);
+
+      const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+      line.setAttribute('x1', padX - 4); line.setAttribute('x2', w - 10);
+      line.setAttribute('y1', y); line.setAttribute('y2', y);
+      line.setAttribute('stroke', '#E8E2D8');
+      line.setAttribute('stroke-width', '1');
+      svg.appendChild(line);
+    });
+
+    const pts = recent.map((k, i) => {
+      const x = padX + (i / (recent.length - 1)) * (w - padX - 10);
+      const y = (h - padBottom) - ((getMetric(k, def.id) - min) / range) * (h - padTop - padBottom);
       return [x, y];
     });
 
-    const pathD = points.map((p, i) => (i === 0 ? 'M' : 'L') + p[0].toFixed(1) + ',' + p[1].toFixed(1)).join(' ');
     const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-    path.setAttribute('d', pathD);
+    path.setAttribute('d', pts.map((p, i) => (i === 0 ? 'M' : 'L') + p[0].toFixed(1) + ',' + p[1].toFixed(1)).join(' '));
     path.setAttribute('fill', 'none');
     path.setAttribute('stroke', '#1B4332');
     path.setAttribute('stroke-width', '2.5');
@@ -1460,20 +1599,29 @@
     path.setAttribute('stroke-linejoin', 'round');
     svg.appendChild(path);
 
-    points.forEach(p => {
+    pts.forEach(p => {
       const c = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
-      c.setAttribute('cx', p[0]);
-      c.setAttribute('cy', p[1]);
-      c.setAttribute('r', '2.5');
-      c.setAttribute('fill', '#1B4332');
+      c.setAttribute('cx', p[0]); c.setAttribute('cy', p[1]);
+      c.setAttribute('r', '2.5'); c.setAttribute('fill', '#1B4332');
       svg.appendChild(c);
     });
+
+    // dates aux extrémités
+    [[recent[0], pts[0][0], 'start'], [recent[recent.length-1], pts[pts.length-1][0], 'end']]
+      .forEach(([k, x, anchor]) => {
+        const t = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+        t.setAttribute('x', x); t.setAttribute('y', h - 10);
+        t.setAttribute('font-size', '10'); t.setAttribute('fill', '#8A8378');
+        t.setAttribute('text-anchor', anchor);
+        t.textContent = new Date(k + 'T00:00:00').toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' });
+        svg.appendChild(t);
+      });
   }
 
-  function renderWeightHistory(sortedKeys) {
+  function renderWeightHistory(keys, def) {
     const container = document.getElementById('weight-history');
     container.innerHTML = '';
-    const reversed = [...sortedKeys].reverse().slice(0, 20);
+    const reversed = [...keys].reverse().slice(0, 30);
     if (reversed.length === 0) {
       container.style.display = 'none';
       return;
@@ -1482,11 +1630,10 @@
     reversed.forEach(key => {
       const row = document.createElement('div');
       row.className = 'exercise-row';
-      const dateLabel = new Date(key + 'T00:00:00').toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' });
-      row.innerHTML = `
-        <div>${dateLabel}</div>
-        <div style="font-weight:700;">${weightEntries[key].toFixed(1)} kg</div>
-      `;
+      const dateLabel = new Date(key + 'T00:00:00').toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' });
+      const val = getMetric(key, def.id);
+      row.innerHTML = '<div>' + dateLabel + '</div>' +
+        '<div style="font-weight:700;">' + val.toFixed(def.decimals) + ' ' + def.unit + '</div>';
       container.appendChild(row);
     });
   }
@@ -1497,16 +1644,161 @@
       showToast('Entre un poids valide');
       return;
     }
-    addWeightEntry(fmtKey(new Date()), val);
+    addWeightEntry(fmtKey(new Date()), { poids: val });
     saveWeightData();
     document.getElementById('weight-input').value = '';
+    activeMetric = 'poids';
     renderWeightTab();
     showToast('Pesée enregistrée ✓');
   });
 
+  // ---- Import CSV FitDays ----
+  function splitCSVLine(line) {
+    const out = [];
+    let cur = '', inQuotes = false;
+    for (let i = 0; i < line.length; i++) {
+      const c = line[i];
+      if (c === '"') {
+        if (inQuotes && line[i+1] === '"') { cur += '"'; i++; }
+        else inQuotes = !inQuotes;
+      } else if (c === ',' && !inQuotes) {
+        out.push(cur); cur = '';
+      } else cur += c;
+    }
+    out.push(cur);
+    return out;
+  }
+
+  function parseFitdaysCSV(text) {
+    const lines = text.split(/\r?\n/).filter(l => l.trim());
+    if (lines.length < 2) return { entries: {}, count: 0, skipped: 0, error: 'Fichier vide ou illisible' };
+
+    const headers = splitCSVLine(lines[0]).map(h => h.trim());
+    const norm = s => s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+
+    function findCol() {
+      const kws = Array.from(arguments);
+      for (let i = 0; i < headers.length; i++) {
+        if (kws.some(k => norm(headers[i]) === norm(k))) return i;
+      }
+      for (let i = 0; i < headers.length; i++) {
+        if (kws.some(k => norm(headers[i]).includes(norm(k)))) return i;
+      }
+      return -1;
+    }
+
+    const cols = {
+      date:      findCol('Date', 'Time'),
+      poids:     findCol('Poids', 'Weight'),
+      imc:       findCol('IMC', 'BMI'),
+      graisse:   findCol('Graisse corporelle', 'Body Fat'),
+      muscle:    findCol('Muscle squelettique %', 'Muscle squelettique', 'Skeletal Muscle'),
+      masseMusc: findCol('Masse musculaire', 'Muscle Mass'),
+      eau:       findCol('Eau Corporelle', 'Body Water'),
+      viscerale: findCol('Graisse Viscérale', 'Visceral Fat')
+    };
+
+    if (cols.date === -1 || cols.poids === -1) {
+      return { entries: {}, count: 0, skipped: 0, error: 'Colonnes Date ou Poids introuvables dans ce fichier' };
+    }
+
+    function num(raw) {
+      if (raw === undefined) return null;
+      const s = String(raw).trim();
+      if (!s || s === '--' || s === '-') return null;
+      const v = parseFloat(s.replace(/[^0-9.,\-]/g, '').replace(',', '.'));
+      return Number.isFinite(v) ? v : null;
+    }
+
+    function parseDate(raw) {
+      if (!raw) return null;
+      const s = String(raw).trim();
+      const iso = s.match(/(\d{4})-(\d{2})-(\d{2})/);
+      if (iso) return iso[0];
+      const m = s.match(/(\d{2})\/(\d{2})\/(\d{4})/);
+      return m ? (m[3] + '-' + m[2] + '-' + m[1]) : null;
+    }
+
+    const entries = {};
+    let count = 0, skipped = 0;
+
+    for (let i = 1; i < lines.length; i++) {
+      const parts = splitCSVLine(lines[i]);
+      const key = parseDate(parts[cols.date]);
+      const poids = num(parts[cols.poids]);
+      if (!key || poids === null) { skipped++; continue; }
+      // fichier trié du plus récent au plus ancien : on garde la 1re ligne vue par date
+      if (entries[key]) { skipped++; continue; }
+
+      const rec = { poids: poids };
+      ['imc','graisse','muscle','masseMusc','eau','viscerale'].forEach(f => {
+        if (cols[f] > -1) {
+          const v = num(parts[cols[f]]);
+          if (v !== null) rec[f] = v;
+        }
+      });
+      entries[key] = rec;
+      count++;
+    }
+
+    return { entries, count, skipped, error: null };
+  }
+
+  document.getElementById('csv-input').addEventListener('change', (e) => {
+    const file = e.target.files && e.target.files[0];
+    const status = document.getElementById('import-status');
+    if (!file) return;
+
+    status.textContent = 'Lecture du fichier…';
+    const reader = new FileReader();
+
+    reader.onerror = () => {
+      status.innerHTML = '<span style="color:var(--danger);">Impossible de lire le fichier.</span>';
+    };
+
+    reader.onload = (ev) => {
+      try {
+        const res = parseFitdaysCSV(String(ev.target.result));
+        if (res.error) {
+          status.innerHTML = '<span style="color:var(--danger);">' + res.error + '</span>';
+          return;
+        }
+        if (res.count === 0) {
+          status.innerHTML = '<span style="color:var(--danger);">Aucune mesure lisible dans ce fichier.</span>';
+          return;
+        }
+        let added = 0, updated = 0;
+        for (const k in res.entries) {
+          if (weightEntries[k]) updated++; else added++;
+          addWeightEntry(k, res.entries[k]);
+        }
+        saveWeightData();
+        renderWeightTab();
+        status.innerHTML = '✓ ' + res.count + ' mesure' + (res.count > 1 ? 's' : '') +
+          ' importée' + (res.count > 1 ? 's' : '') +
+          ' (' + added + ' nouvelle' + (added > 1 ? 's' : '') + ', ' + updated + ' mise' + (updated > 1 ? 's' : '') + ' à jour)' +
+          (res.skipped ? '<br>' + res.skipped + ' ligne' + (res.skipped > 1 ? 's' : '') + ' ignorée' + (res.skipped > 1 ? 's' : '') + ' (doublon ou vide).' : '');
+        showToast('Import réussi ✓');
+      } catch (err) {
+        console.error(err);
+        status.innerHTML = '<span style="color:var(--danger);">Erreur pendant l\'import.</span>';
+      } finally {
+        e.target.value = '';
+      }
+    };
+
+    reader.readAsText(file);
+  });
+
   // ---- Export ----
   function exportData() {
-    const blob = new Blob([JSON.stringify(sportDays, null, 2)], { type: 'application/json' });
+    const payload = {
+      version: 2,
+      exporte: new Date().toISOString(),
+      seances: sportDays,
+      mesures: weightEntries
+    };
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
