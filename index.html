@@ -20,6 +20,7 @@
     --empty: #EFEBE4;
     --card: #FFFFFF;
     --line: #E8E2D8;
+    --danger: #C4432E;
   }
 
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
@@ -51,6 +52,7 @@
     padding: 20px 20px 40px;
     min-height: 100vh;
     min-height: 100dvh;
+    position: relative;
   }
 
   /* Header */
@@ -74,11 +76,26 @@
     margin-top: 2px;
   }
 
+  .icon-btn {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    border: none;
+    background: var(--card);
+    border: 1px solid var(--line);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 15px;
+    color: var(--ink-soft);
+    cursor: pointer;
+  }
+
   /* Stat banner */
   .stat-row {
     display: flex;
     gap: 10px;
-    margin: 20px 0 22px;
+    margin: 20px 0 16px;
   }
 
   .stat {
@@ -96,15 +113,46 @@
     line-height: 1;
   }
 
-  .stat.streak .num {
-    color: var(--accent);
-  }
+  .stat.streak .num { color: var(--accent); }
 
   .stat .label {
     font-size: 12px;
     color: var(--ink-soft);
     margin-top: 6px;
     font-weight: 500;
+  }
+
+  /* Goal bar */
+  .goal-card {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    padding: 12px 16px;
+    margin-bottom: 20px;
+  }
+
+  .goal-top {
+    display: flex;
+    justify-content: space-between;
+    font-size: 13px;
+    margin-bottom: 8px;
+  }
+
+  .goal-top .goal-label { color: var(--ink-soft); }
+  .goal-top .goal-value { font-weight: 700; }
+
+  .goal-track {
+    height: 7px;
+    border-radius: 5px;
+    background: var(--empty);
+    overflow: hidden;
+  }
+
+  .goal-fill {
+    height: 100%;
+    background: var(--done);
+    border-radius: 5px;
+    transition: width 0.3s ease;
   }
 
   /* Month nav */
@@ -136,14 +184,7 @@
     cursor: pointer;
   }
 
-  .nav-btn:active {
-    background: var(--empty);
-  }
-
-  .nav-group {
-    display: flex;
-    gap: 8px;
-  }
+  .nav-group { display: flex; gap: 8px; }
 
   /* Calendar grid */
   .weekdays {
@@ -171,6 +212,7 @@
     border: none;
     background: var(--empty);
     display: flex;
+    flex-direction: column;
     align-items: center;
     justify-content: center;
     font-size: 15px;
@@ -181,43 +223,13 @@
     transition: transform 0.08s ease, background 0.15s ease;
   }
 
-  .day:active {
-    transform: scale(0.92);
-  }
+  .day:active { transform: scale(0.92); }
+  .day.empty { background: transparent; cursor: default; }
+  .day.today { box-shadow: inset 0 0 0 2px var(--accent); }
+  .day.done { background: var(--done); color: white; }
+  .day.future { color: var(--ink-soft); opacity: 0.6; }
 
-  .day.empty {
-    background: transparent;
-    cursor: default;
-  }
-
-  .day.today {
-    box-shadow: inset 0 0 0 2px var(--accent);
-  }
-
-  .day.done {
-    background: var(--done);
-    color: white;
-  }
-
-  .day.future {
-    color: var(--ink-soft);
-    opacity: 0.6;
-  }
-
-  .day .check {
-    position: absolute;
-    bottom: 4px;
-    font-size: 9px;
-  }
-
-  /* Bottom nudge */
-  .footer-note {
-    margin-top: 28px;
-    text-align: center;
-    font-size: 13px;
-    color: var(--ink-soft);
-    line-height: 1.5;
-  }
+  .day .type-icon { font-size: 10px; margin-top: 1px; }
 
   .legend {
     display: flex;
@@ -240,11 +252,279 @@
   .dot.done { background: var(--done); }
   .dot.today { background: transparent; box-shadow: inset 0 0 0 2px var(--accent); }
 
-  .loading {
+  .footer-note {
+    margin-top: 28px;
     text-align: center;
+    font-size: 13px;
     color: var(--ink-soft);
-    padding: 40px 0;
+    line-height: 1.5;
+  }
+
+  .footer-note button {
+    background: none;
+    border: none;
+    color: var(--accent);
+    font-size: 13px;
+    font-weight: 600;
+    text-decoration: underline;
+    cursor: pointer;
+    padding: 4px;
+  }
+
+  /* Sheet (day detail) */
+  .sheet-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.4);
+    display: none;
+    align-items: flex-end;
+    justify-content: center;
+    z-index: 100;
+  }
+
+  .sheet-overlay.open { display: flex; }
+
+  .sheet {
+    background: var(--bg);
+    width: 100%;
+    max-width: 480px;
+    border-radius: 24px 24px 0 0;
+    padding: 20px 20px calc(30px + env(safe-area-inset-bottom));
+    max-height: 88vh;
+    overflow-y: auto;
+  }
+
+  .sheet-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 18px;
+  }
+
+  .sheet-header .sheet-date {
+    font-size: 15px;
+    font-weight: 700;
+    text-transform: capitalize;
+  }
+
+  .sheet-header .icon-btn { border: none; background: var(--empty); }
+
+  .field-label {
+    font-size: 12px;
+    color: var(--ink-soft);
+    font-weight: 600;
+    margin: 16px 0 8px;
+  }
+
+  .field-label:first-of-type { margin-top: 0; }
+
+  .type-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+  }
+
+  .type-chip {
+    background: var(--card);
+    border: 1.5px solid var(--line);
+    border-radius: 12px;
+    padding: 10px 6px;
+    text-align: center;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--ink-soft);
+    cursor: pointer;
+  }
+
+  .type-chip .emoji { font-size: 18px; display: block; margin-bottom: 4px; }
+
+  .type-chip.selected {
+    background: var(--accent-soft);
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+
+  .duration-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .duration-row input[type="range"] {
+    flex: 1;
+    accent-color: var(--done);
+  }
+
+  .duration-value {
+    font-size: 22px;
+    font-weight: 800;
+    min-width: 70px;
+    text-align: right;
+  }
+
+  .duration-value span { font-size: 13px; font-weight: 500; color: var(--ink-soft); }
+
+  .exercise-list {
+    background: var(--card);
+    border-radius: 14px;
+    border: 1px solid var(--line);
+    overflow: hidden;
+  }
+
+  .exercise-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 14px;
+    border-bottom: 1px solid var(--line);
     font-size: 14px;
+  }
+
+  .exercise-row:last-child { border-bottom: none; }
+  .exercise-row .ex-meta { font-size: 12px; color: var(--ink-soft); }
+  .exercise-row .ex-remove {
+    background: none; border: none; color: var(--danger);
+    font-size: 18px; cursor: pointer; padding: 0 4px;
+  }
+
+  .add-exercise-btn {
+    width: 100%;
+    background: none;
+    border: 1.5px dashed var(--accent);
+    color: var(--accent);
+    border-radius: 12px;
+    padding: 12px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+
+  .exercise-form {
+    display: none;
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    padding: 14px;
+    margin-top: 10px;
+    gap: 8px;
+    flex-direction: column;
+  }
+
+  .exercise-form.open { display: flex; }
+
+  .exercise-form input {
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 10px 12px;
+    font-size: 14px;
+    background: var(--bg);
+    color: var(--ink);
+  }
+
+  .exercise-form .row3 {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 8px;
+  }
+
+  .exercise-form-actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 4px;
+  }
+
+  .exercise-form-actions button {
+    flex: 1;
+    border-radius: 10px;
+    padding: 10px;
+    font-size: 13px;
+    font-weight: 700;
+    border: none;
+    cursor: pointer;
+  }
+
+  .btn-confirm { background: var(--done); color: white; }
+  .btn-cancel { background: var(--empty); color: var(--ink-soft); }
+
+  .feel-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+  }
+
+  .feel-chip {
+    background: var(--card);
+    border: 1.5px solid var(--line);
+    border-radius: 12px;
+    padding: 12px;
+    text-align: center;
+    font-size: 22px;
+    cursor: pointer;
+  }
+
+  .feel-chip.selected { background: var(--accent-soft); border-color: var(--accent); }
+
+  textarea.note-field {
+    width: 100%;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 12px;
+    font-size: 14px;
+    background: var(--card);
+    color: var(--ink);
+    font-family: inherit;
+    resize: vertical;
+    min-height: 70px;
+  }
+
+  .sheet-actions {
+    display: flex;
+    gap: 10px;
+    margin-top: 22px;
+  }
+
+  .btn-save {
+    flex: 1;
+    background: var(--done);
+    color: white;
+    border: none;
+    border-radius: 14px;
+    padding: 14px;
+    font-size: 15px;
+    font-weight: 700;
+    cursor: pointer;
+  }
+
+  .btn-delete {
+    width: 52px;
+    background: var(--card);
+    border: 1.5px solid var(--line);
+    color: var(--danger);
+    border-radius: 14px;
+    font-size: 18px;
+    cursor: pointer;
+  }
+
+  .toast {
+    position: fixed;
+    bottom: 24px;
+    left: 50%;
+    transform: translateX(-50%) translateY(20px);
+    background: var(--ink);
+    color: white;
+    padding: 10px 18px;
+    border-radius: 30px;
+    font-size: 13px;
+    font-weight: 600;
+    opacity: 0;
+    pointer-events: none;
+    transition: all 0.25s ease;
+    z-index: 200;
+  }
+
+  .toast.show {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
   }
 </style>
 </head>
@@ -255,6 +535,7 @@
       <h1>Sport 🏃</h1>
       <div class="subtitle" id="today-str"></div>
     </div>
+    <button class="icon-btn" id="export-btn" title="Exporter mes données">⬇</button>
   </div>
 
   <div class="stat-row">
@@ -266,6 +547,14 @@
       <div class="num" id="stat-streak">0</div>
       <div class="label">Jours de suite</div>
     </div>
+  </div>
+
+  <div class="goal-card">
+    <div class="goal-top">
+      <span class="goal-label">Objectif hebdo</span>
+      <span class="goal-value" id="goal-text">0 / 3 séances</span>
+    </div>
+    <div class="goal-track"><div class="goal-fill" id="goal-fill" style="width:0%"></div></div>
   </div>
 
   <div class="month-nav">
@@ -289,14 +578,85 @@
     <span><span class="dot today"></span>Aujourd'hui</span>
   </div>
 
-  <div class="footer-note">Touche un jour pour le cocher ou décocher.<br>Tes données restent sur cet appareil.</div>
+  <div class="footer-note">
+    Touche un jour pour voir ou ajouter le détail de ta séance.<br>
+    Tes données restent sur cet appareil. <button id="export-link">Exporter une sauvegarde</button>
+  </div>
 </div>
 
+<!-- Day detail sheet -->
+<div class="sheet-overlay" id="sheet-overlay">
+  <div class="sheet">
+    <div class="sheet-header">
+      <span class="sheet-date" id="sheet-date">—</span>
+      <button class="icon-btn" id="sheet-close">✕</button>
+    </div>
+
+    <div class="field-label">Type d'activité</div>
+    <div class="type-grid" id="type-grid"></div>
+
+    <div class="field-label">Durée</div>
+    <div class="duration-row">
+      <input type="range" id="duration-slider" min="0" max="180" step="5" value="0">
+      <div class="duration-value"><span id="duration-num">0</span> <span>min</span></div>
+    </div>
+
+    <div class="field-label">Exercices réalisés</div>
+    <div class="exercise-list" id="exercise-list"></div>
+    <button class="add-exercise-btn" id="add-exercise-btn" style="margin-top:8px;">+ Ajouter un exercice</button>
+
+    <div class="exercise-form" id="exercise-form">
+      <input type="text" id="ex-name" placeholder="Nom de l'exercice (ex: Squat)">
+      <div class="row3">
+        <input type="number" id="ex-sets" placeholder="Séries" inputmode="numeric">
+        <input type="number" id="ex-reps" placeholder="Reps" inputmode="numeric">
+        <input type="number" id="ex-weight" placeholder="Poids (kg)" inputmode="numeric">
+      </div>
+      <div class="exercise-form-actions">
+        <button class="btn-cancel" id="ex-cancel">Annuler</button>
+        <button class="btn-confirm" id="ex-confirm">Ajouter</button>
+      </div>
+    </div>
+
+    <div class="field-label">Ressenti</div>
+    <div class="feel-grid" id="feel-grid">
+      <div class="feel-chip" data-feel="dur">😓</div>
+      <div class="feel-chip" data-feel="ok">🙂</div>
+      <div class="feel-chip" data-feel="top">💪</div>
+    </div>
+
+    <div class="field-label">Note</div>
+    <textarea class="note-field" id="note-field" placeholder="Un commentaire sur ta séance..."></textarea>
+
+    <div class="sheet-actions">
+      <button class="btn-delete" id="btn-delete" title="Supprimer">🗑</button>
+      <button class="btn-save" id="btn-save">Enregistrer</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast">Enregistré</div>
+
 <script>
-  const STORAGE_KEY = 'sport-days';
-  let sportDays = new Set(); // format 'YYYY-MM-DD'
+  const STORAGE_KEY = 'sport-days-v2';
+  let sportDays = {}; // { 'YYYY-MM-DD': { type, duration, exercises: [], feel, note } }
   let viewDate = new Date();
   viewDate.setDate(1);
+  let currentEditKey = null;
+  let currentExercises = [];
+  let currentFeel = null;
+  let currentType = null;
+
+  const WEEKLY_GOAL = 3;
+
+  const TYPES = [
+    { id: 'muscu', label: 'Muscu', emoji: '🏋️' },
+    { id: 'course', label: 'Course', emoji: '🏃' },
+    { id: 'velo', label: 'Vélo', emoji: '🚴' },
+    { id: 'yoga', label: 'Yoga', emoji: '🧘' },
+    { id: 'natation', label: 'Natation', emoji: '🏊' },
+    { id: 'autre', label: 'Autre', emoji: '⚡' }
+  ];
 
   const todayObj = new Date();
   const todayKey = fmtKey(todayObj);
@@ -311,47 +671,42 @@
 
   document.getElementById('today-str').textContent = fmtDateLong(todayObj).replace(/^./, c => c.toUpperCase());
 
-  async function loadData() {
+  function loadData() {
     try {
-      const result = await window.storage.get(STORAGE_KEY);
-      if (result && result.value) {
-        const arr = JSON.parse(result.value);
-        sportDays = new Set(arr);
-      }
+      const raw = localStorage.getItem(STORAGE_KEY);
+      sportDays = raw ? JSON.parse(raw) : {};
     } catch (e) {
-      // clé pas encore créée, ou erreur -> on part de vide
-      sportDays = new Set();
+      console.error('Erreur de lecture localStorage', e);
+      sportDays = {};
     }
     render();
   }
 
-  async function saveData() {
+  function saveData() {
     try {
-      await window.storage.set(STORAGE_KEY, JSON.stringify(Array.from(sportDays)));
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(sportDays));
+      return true;
     } catch (e) {
-      console.error('Erreur de sauvegarde', e);
+      console.error('Erreur de sauvegarde localStorage', e);
+      showToast('Erreur de sauvegarde ⚠️');
+      return false;
     }
   }
 
-  function toggleDay(key) {
-    if (sportDays.has(key)) {
-      sportDays.delete(key);
-    } else {
-      sportDays.add(key);
-    }
-    saveData();
-    render();
+  function showToast(msg) {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    setTimeout(() => t.classList.remove('show'), 1800);
   }
 
   function computeStreak() {
-    // compte les jours consécutifs jusqu'à aujourd'hui (ou hier si aujourd'hui pas encore fait)
     let streak = 0;
     let cursor = new Date(todayObj);
-    // si aujourd'hui pas fait, on commence à hier
-    if (!sportDays.has(fmtKey(cursor))) {
+    if (!sportDays[fmtKey(cursor)]) {
       cursor.setDate(cursor.getDate() - 1);
     }
-    while (sportDays.has(fmtKey(cursor))) {
+    while (sportDays[fmtKey(cursor)]) {
       streak++;
       cursor.setDate(cursor.getDate() - 1);
     }
@@ -360,9 +715,25 @@
 
   function computeMonthCount(year, month) {
     let count = 0;
-    for (const key of sportDays) {
+    for (const key in sportDays) {
       const [y, m] = key.split('-').map(Number);
       if (y === year && m === month + 1) count++;
+    }
+    return count;
+  }
+
+  function computeWeekCount() {
+    // lundi -> dimanche de la semaine en cours
+    const now = new Date(todayObj);
+    const dow = (now.getDay() + 6) % 7; // 0 = lundi
+    const monday = new Date(now);
+    monday.setDate(now.getDate() - dow);
+    let count = 0;
+    for (let i = 0; i < 7; i++) {
+      const d = new Date(monday);
+      d.setDate(monday.getDate() + i);
+      if (d > todayObj) break;
+      if (sportDays[fmtKey(d)]) count++;
     }
     return count;
   }
@@ -377,8 +748,11 @@
     document.getElementById('stat-month').textContent = computeMonthCount(year, month);
     document.getElementById('stat-streak').textContent = computeStreak();
 
+    const weekCount = computeWeekCount();
+    document.getElementById('goal-text').textContent = `${weekCount} / ${WEEKLY_GOAL} séances`;
+    document.getElementById('goal-fill').style.width = Math.min(100, (weekCount / WEEKLY_GOAL) * 100) + '%';
+
     const firstOfMonth = new Date(year, month, 1);
-    // lundi = 0 ... dimanche = 6
     let startOffset = (firstOfMonth.getDay() + 6) % 7;
     const daysInMonth = new Date(year, month + 1, 0).getDate();
 
@@ -394,19 +768,209 @@
     for (let day = 1; day <= daysInMonth; day++) {
       const dateObj = new Date(year, month, day);
       const key = fmtKey(dateObj);
+      const entry = sportDays[key];
       const btn = document.createElement('button');
       btn.className = 'day';
-      btn.textContent = day;
 
-      if (sportDays.has(key)) btn.classList.add('done');
+      const numSpan = document.createElement('span');
+      numSpan.textContent = day;
+      btn.appendChild(numSpan);
+
+      if (entry) {
+        btn.classList.add('done');
+        const typeObj = TYPES.find(t => t.id === entry.type);
+        if (typeObj) {
+          const iconSpan = document.createElement('span');
+          iconSpan.className = 'type-icon';
+          iconSpan.textContent = typeObj.emoji;
+          btn.appendChild(iconSpan);
+        }
+      }
       if (key === todayKey) btn.classList.add('today');
       if (dateObj > todayObj && key !== todayKey) btn.classList.add('future');
 
-      btn.addEventListener('click', () => toggleDay(key));
+      btn.addEventListener('click', () => openSheet(key));
       grid.appendChild(btn);
     }
   }
 
+  // ---- Sheet logic ----
+
+  function renderTypeGrid() {
+    const grid = document.getElementById('type-grid');
+    grid.innerHTML = '';
+    TYPES.forEach(t => {
+      const chip = document.createElement('div');
+      chip.className = 'type-chip' + (currentType === t.id ? ' selected' : '');
+      chip.innerHTML = `<span class="emoji">${t.emoji}</span>${t.label}`;
+      chip.addEventListener('click', () => {
+        currentType = t.id;
+        renderTypeGrid();
+      });
+      grid.appendChild(chip);
+    });
+  }
+
+  function renderExerciseList() {
+    const list = document.getElementById('exercise-list');
+    list.innerHTML = '';
+    if (currentExercises.length === 0) {
+      list.style.display = 'none';
+      return;
+    }
+    list.style.display = 'block';
+    currentExercises.forEach((ex, idx) => {
+      const row = document.createElement('div');
+      row.className = 'exercise-row';
+      let meta = '';
+      if (ex.sets || ex.reps) meta += `${ex.sets || '?'} x ${ex.reps || '?'}`;
+      if (ex.weight) meta += (meta ? ' · ' : '') + `${ex.weight}kg`;
+      row.innerHTML = `
+        <div><div>${escapeHtml(ex.name)}</div><div class="ex-meta">${meta}</div></div>
+        <button class="ex-remove" data-idx="${idx}">✕</button>
+      `;
+      list.appendChild(row);
+    });
+    list.querySelectorAll('.ex-remove').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        const idx = parseInt(e.target.dataset.idx);
+        currentExercises.splice(idx, 1);
+        renderExerciseList();
+      });
+    });
+  }
+
+  function escapeHtml(str) {
+    const div = document.createElement('div');
+    div.textContent = str;
+    return div.innerHTML;
+  }
+
+  function renderFeelGrid() {
+    document.querySelectorAll('.feel-chip').forEach(chip => {
+      chip.classList.toggle('selected', chip.dataset.feel === currentFeel);
+    });
+  }
+
+  function openSheet(key) {
+    currentEditKey = key;
+    const entry = sportDays[key] || {};
+    currentType = entry.type || null;
+    currentExercises = entry.exercises ? [...entry.exercises] : [];
+    currentFeel = entry.feel || null;
+
+    document.getElementById('sheet-date').textContent = fmtDateLong(new Date(key + 'T00:00:00'));
+    document.getElementById('duration-slider').value = entry.duration || 0;
+    document.getElementById('duration-num').textContent = entry.duration || 0;
+    document.getElementById('note-field').value = entry.note || '';
+    document.getElementById('btn-delete').style.visibility = sportDays[key] ? 'visible' : 'hidden';
+    document.getElementById('exercise-form').classList.remove('open');
+
+    renderTypeGrid();
+    renderExerciseList();
+    renderFeelGrid();
+
+    document.getElementById('sheet-overlay').classList.add('open');
+  }
+
+  function closeSheet() {
+    document.getElementById('sheet-overlay').classList.remove('open');
+    currentEditKey = null;
+  }
+
+  document.getElementById('sheet-close').addEventListener('click', closeSheet);
+  document.getElementById('sheet-overlay').addEventListener('click', (e) => {
+    if (e.target.id === 'sheet-overlay') closeSheet();
+  });
+
+  document.getElementById('duration-slider').addEventListener('input', (e) => {
+    document.getElementById('duration-num').textContent = e.target.value;
+  });
+
+  document.querySelectorAll('.feel-chip').forEach(chip => {
+    chip.addEventListener('click', () => {
+      currentFeel = chip.dataset.feel;
+      renderFeelGrid();
+    });
+  });
+
+  document.getElementById('add-exercise-btn').addEventListener('click', () => {
+    document.getElementById('exercise-form').classList.add('open');
+    document.getElementById('ex-name').focus();
+  });
+
+  document.getElementById('ex-cancel').addEventListener('click', () => {
+    document.getElementById('exercise-form').classList.remove('open');
+    clearExerciseForm();
+  });
+
+  function clearExerciseForm() {
+    document.getElementById('ex-name').value = '';
+    document.getElementById('ex-sets').value = '';
+    document.getElementById('ex-reps').value = '';
+    document.getElementById('ex-weight').value = '';
+  }
+
+  document.getElementById('ex-confirm').addEventListener('click', () => {
+    const name = document.getElementById('ex-name').value.trim();
+    if (!name) {
+      document.getElementById('ex-name').style.borderColor = 'var(--danger)';
+      return;
+    }
+    currentExercises.push({
+      name,
+      sets: document.getElementById('ex-sets').value,
+      reps: document.getElementById('ex-reps').value,
+      weight: document.getElementById('ex-weight').value
+    });
+    clearExerciseForm();
+    document.getElementById('exercise-form').classList.remove('open');
+    renderExerciseList();
+  });
+
+  document.getElementById('btn-save').addEventListener('click', () => {
+    if (!currentEditKey) return;
+    sportDays[currentEditKey] = {
+      type: currentType,
+      duration: parseInt(document.getElementById('duration-slider').value) || 0,
+      exercises: currentExercises,
+      feel: currentFeel,
+      note: document.getElementById('note-field').value.trim()
+    };
+    if (saveData()) {
+      showToast('Séance enregistrée ✓');
+      closeSheet();
+      render();
+    }
+  });
+
+  document.getElementById('btn-delete').addEventListener('click', () => {
+    if (!currentEditKey) return;
+    delete sportDays[currentEditKey];
+    saveData();
+    showToast('Séance supprimée');
+    closeSheet();
+    render();
+  });
+
+  // ---- Export ----
+  function exportData() {
+    const blob = new Blob([JSON.stringify(sportDays, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'sport-calendar-sauvegarde-' + fmtKey(new Date()) + '.json';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    showToast('Sauvegarde téléchargée');
+  }
+
+  document.getElementById('export-btn').addEventListener('click', exportData);
+  document.getElementById('export-link').addEventListener('click', exportData);
+
+  // ---- Month nav ----
   document.getElementById('prev-btn').addEventListener('click', () => {
     viewDate.setMonth(viewDate.getMonth() - 1);
     render();
