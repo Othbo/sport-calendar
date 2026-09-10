@@ -427,6 +427,107 @@
   }
 
   /* Metric tabs + import */
+  .bar-row {
+    margin-bottom: 10px;
+  }
+
+  .bar-top {
+    display: flex;
+    justify-content: space-between;
+    font-size: 12px;
+    margin-bottom: 4px;
+  }
+
+  .bar-top .bar-name { font-weight: 600; }
+  .bar-top .bar-val { color: var(--ink-soft); }
+
+  .bar-track {
+    height: 8px;
+    border-radius: 5px;
+    background: var(--empty);
+    overflow: hidden;
+  }
+
+  .bar-fill {
+    height: 100%;
+    border-radius: 5px;
+    background: var(--done);
+  }
+
+  .ex-picker {
+    width: 100%;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 11px 12px;
+    font-size: 14px;
+    background: var(--card);
+    color: var(--ink);
+    font-family: inherit;
+    -webkit-appearance: none;
+    appearance: none;
+  }
+
+  .empty-hint {
+    font-size: 13px;
+    color: var(--ink-soft);
+    text-align: center;
+    padding: 20px 10px;
+    line-height: 1.5;
+  }
+
+  .period-row {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 10px;
+  }
+
+  .period-chip {
+    flex: 1;
+    text-align: center;
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 7px 4px;
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--ink-soft);
+    cursor: pointer;
+  }
+
+  .period-chip.active {
+    background: var(--accent-soft);
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+
+  .chart-stats {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+    margin-top: 10px;
+  }
+
+  .chart-stat {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 9px 10px;
+    text-align: center;
+  }
+
+  .chart-stat .cs-val {
+    font-size: 15px;
+    font-weight: 800;
+    color: var(--ink);
+  }
+
+  .chart-stat .cs-lbl {
+    font-size: 10px;
+    color: var(--ink-soft);
+    margin-top: 3px;
+    font-weight: 600;
+  }
+
   .metric-tabs {
     display: flex;
     gap: 6px;
@@ -753,6 +854,23 @@
     min-height: 70px;
   }
 
+  #copy-date {
+    width: 100%;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 11px 12px;
+    font-size: 15px;
+    background: var(--card);
+    color: var(--ink);
+    font-family: inherit;
+    -webkit-appearance: none;
+    appearance: none;
+  }
+
+  #btn-copy {
+    color: var(--accent);
+  }
+
   .sheet-actions {
     display: flex;
     gap: 10px;
@@ -816,7 +934,8 @@
 
   <div class="tab-row">
     <button class="tab-btn active" data-tab="calendar">Calendrier</button>
-    <button class="tab-btn" data-tab="body">Suivi corporel</button>
+    <button class="tab-btn" data-tab="stats">Stats</button>
+    <button class="tab-btn" data-tab="body">Corporel</button>
   </div>
 
   <div id="tab-calendar">
@@ -831,10 +950,10 @@
     </div>
   </div>
 
-  <div class="goal-card">
+  <div class="goal-card" id="goal-card">
     <div class="goal-top">
-      <span class="goal-label">Objectif hebdo</span>
-      <span class="goal-value" id="goal-text">0 / 3 séances</span>
+      <span class="goal-label">Objectif hebdo ✎</span>
+      <span class="goal-value" id="goal-text">0 / 4 séances</span>
     </div>
     <div class="goal-track"><div class="goal-fill" id="goal-fill" style="width:0%"></div></div>
   </div>
@@ -866,6 +985,49 @@
   </div>
   </div>
 
+  <div id="tab-stats" style="display:none;">
+    <div class="period-row" id="stats-period-row"></div>
+
+    <div class="stat-row">
+      <div class="stat">
+        <div class="num" id="kpi-freq">—</div>
+        <div class="label">Séances / semaine</div>
+      </div>
+      <div class="stat streak">
+        <div class="num" id="kpi-sessions">—</div>
+        <div class="label">Séances au total</div>
+      </div>
+    </div>
+
+    <div class="stat-row" style="margin-top:0;">
+      <div class="stat">
+        <div class="num" id="kpi-tonnage">—</div>
+        <div class="label">Volume total (t)</div>
+      </div>
+      <div class="stat streak">
+        <div class="num" id="kpi-duration">—</div>
+        <div class="label">Temps total (h)</div>
+      </div>
+    </div>
+
+    <div class="field-label">Volume par semaine</div>
+    <svg id="volume-chart" viewBox="0 0 340 170" style="width:100%;height:170px;background:var(--card);border:1px solid var(--line);border-radius:14px;"></svg>
+    <div style="font-size:11px;color:var(--ink-soft);margin-top:6px;line-height:1.4;">
+      Volume = séries × répétitions × poids, cumulé. Les exercices sans poids saisi ne comptent pas.
+    </div>
+
+    <div class="field-label">Répartition par groupe musculaire</div>
+    <div id="muscle-breakdown"></div>
+
+    <div class="field-label">Répartition par activité</div>
+    <div id="activity-breakdown"></div>
+
+    <div class="field-label">Progression par exercice</div>
+    <select id="exercise-picker" class="ex-picker"></select>
+    <svg id="progress-chart" viewBox="0 0 340 170" style="width:100%;height:170px;background:var(--card);border:1px solid var(--line);border-radius:14px;margin-top:8px;"></svg>
+    <div id="progress-summary" style="font-size:12px;color:var(--ink-soft);margin-top:8px;line-height:1.5;"></div>
+  </div>
+
   <div id="tab-body" style="display:none;">
     <div class="stat-row">
       <div class="stat">
@@ -874,13 +1036,17 @@
       </div>
       <div class="stat streak">
         <div class="num" id="weight-change">—</div>
-        <div class="label">Évolution 30j</div>
+        <div class="label" id="weight-change-label">Évolution 30j</div>
       </div>
     </div>
 
     <div class="metric-tabs" id="metric-tabs"></div>
 
-    <svg id="weight-chart" viewBox="0 0 340 170" style="width:100%;height:170px;background:var(--card);border:1px solid var(--line);border-radius:14px;margin-bottom:4px;"></svg>
+    <div class="period-row" id="period-row"></div>
+
+    <svg id="weight-chart" viewBox="0 0 340 210" style="width:100%;height:210px;background:var(--card);border:1px solid var(--line);border-radius:14px;"></svg>
+
+    <div class="chart-stats" id="chart-stats"></div>
 
     <div class="field-label">Importer depuis FitDays</div>
     <label class="import-btn" for="csv-input">
@@ -962,6 +1128,7 @@
 
     <div class="sheet-actions">
       <button class="btn-delete" id="btn-delete" title="Supprimer">🗑</button>
+      <button class="btn-delete" id="btn-copy" title="Copier vers un autre jour">⧉</button>
       <button class="btn-save" id="btn-save">Enregistrer</button>
     </div>
   </div>
@@ -980,6 +1147,23 @@
     <div class="exercise-form-actions" style="margin-top:12px;">
       <button class="btn-cancel" id="ex-cancel">Annuler</button>
       <button class="btn-confirm" id="ex-confirm">Ajouter</button>
+    </div>
+  </div>
+</div>
+
+<div class="exercise-form-overlay" id="copy-overlay">
+  <div class="ex-modal">
+    <div style="font-size:14px;font-weight:700;margin-bottom:4px;">Copier cette séance</div>
+    <div id="copy-source" style="font-size:12px;color:var(--ink-soft);margin-bottom:12px;"></div>
+
+    <div style="font-size:12px;color:var(--ink-soft);font-weight:600;margin-bottom:6px;">Vers quelle date ?</div>
+    <input type="date" id="copy-date">
+
+    <div id="copy-warning" style="display:none;font-size:12px;color:var(--danger);margin-top:8px;line-height:1.4;"></div>
+
+    <div class="exercise-form-actions" style="margin-top:12px;">
+      <button class="btn-cancel" id="copy-cancel">Annuler</button>
+      <button class="btn-confirm" id="copy-confirm">Copier</button>
     </div>
   </div>
 </div>
@@ -1036,7 +1220,20 @@
   viewDate.setDate(1);
   let currentEditKey = null;
 
-  const WEEKLY_GOAL = 3;
+  const GOAL_STORAGE_KEY = 'sport-weekly-goal-v1';
+  let weeklyGoal = 4;
+
+  function loadGoal() {
+    try {
+      const raw = localStorage.getItem(GOAL_STORAGE_KEY);
+      const v = raw ? parseInt(raw) : null;
+      if (Number.isFinite(v) && v >= 1 && v <= 14) weeklyGoal = v;
+    } catch (e) {}
+  }
+
+  function saveGoal() {
+    try { localStorage.setItem(GOAL_STORAGE_KEY, String(weeklyGoal)); } catch (e) {}
+  }
 
   const TYPES = [
     { id: 'muscu', label: 'Muscu', emoji: '🏋️' },
@@ -1044,6 +1241,7 @@
     { id: 'velo', label: 'Vélo', emoji: '🚴' },
     { id: 'yoga', label: 'Yoga', emoji: '🧘' },
     { id: 'natation', label: 'Natation', emoji: '🏊' },
+    { id: 'hiit', label: 'HIIT', emoji: '🔥' },
     { id: 'autre', label: 'Autre', emoji: '⚡' }
   ];
 
@@ -1059,7 +1257,7 @@
     ['Jambes', ['Squat barre','Squat gobelet','Presse à cuisses','Fentes','Fentes bulgares','Fentes marchées','Leg extension','Leg curl','Soulevé de terre jambes tendues','Squat sauté','Mollets debout','Mollets assis']],
     ['Fessiers', ['Hip thrust','Pont fessier','Abduction hanche','Kickback fessier','Squat sumo']],
     ['Abdominaux', ['Crunch','Relevé de jambes','Gainage (planche)','Gainage latéral','Russian twist','Mountain climbers','Roulette abdo (ab wheel)','Crunch câble']],
-    ['Cardio', ['Burpees','Corde à sauter','Rameur','Vélo elliptique','Tapis de course','Kettlebell swing']],
+    ['Cardio', ['Burpees','Corde à sauter','Rameur','Vélo elliptique','Tapis de course','Kettlebell swing','Jumping jacks','Sprint','Squat jump','High knees (montées de genoux)','Skater jumps','Assault bike']],
     ['Fonctionnel', ['Thruster','Clean and press','Wall ball','Battle rope','Box jump','Sled push (poussée traîneau)',"Farmer's walk (marche du fermier)"]]
   ];
 
@@ -1142,6 +1340,12 @@
     'Vélo elliptique': 'Elliptical Trainer',
     'Tapis de course': 'Treadmill Running',
     'Kettlebell swing': 'Kettlebell Swing',
+    'Jumping jacks': 'Jumping Jacks',
+    'Sprint': 'Sprint',
+    'Squat jump': 'Jump Squat',
+    'High knees (montées de genoux)': 'High Knees',
+    'Skater jumps': 'Skater Jumps',
+    'Assault bike': 'Air Bike',
     'Thruster': 'Thruster',
     'Clean and press': 'Clean and Press',
     'Wall ball': 'Wall Ball',
@@ -1395,8 +1599,8 @@
     document.getElementById('stat-streak').textContent = computeStreak();
 
     const weekCount = computeWeekCount();
-    document.getElementById('goal-text').textContent = `${weekCount} / ${WEEKLY_GOAL} séances`;
-    document.getElementById('goal-fill').style.width = Math.min(100, (weekCount / WEEKLY_GOAL) * 100) + '%';
+    document.getElementById('goal-text').textContent = `${weekCount} / ${weeklyGoal} séances`;
+    document.getElementById('goal-fill').style.width = Math.min(100, (weekCount / weeklyGoal) * 100) + '%';
 
     const firstOfMonth = new Date(year, month, 1);
     let startOffset = (firstOfMonth.getDay() + 6) % 7;
@@ -1611,6 +1815,7 @@
     document.getElementById('health-badge').style.display = entry.healthImported ? 'inline' : 'none';
 
     document.getElementById('btn-delete').style.visibility = sportDays[key] ? 'visible' : 'hidden';
+    document.getElementById('btn-copy').style.visibility = sportDays[key] ? 'visible' : 'hidden';
     document.getElementById('activity-form').classList.remove('open');
 
     renderActivityList();
@@ -1773,6 +1978,101 @@
     render();
   });
 
+  // ---- Copier une séance vers un autre jour ----
+  // Copie les activités et leurs exercices (le contenu de l'entraînement).
+  // Les données Santé, le ressenti et la note ne sont pas copiés : ils sont
+  // propres à la journée vécue et n'auraient pas de sens dupliqués.
+  let copySourceKey = null;
+
+  function refreshCopyWarning() {
+    const warn = document.getElementById('copy-warning');
+    const target = document.getElementById('copy-date').value;
+    if (!target) { warn.style.display = 'none'; return; }
+    if (target === copySourceKey) {
+      warn.textContent = 'C\'est la date de la séance d\'origine — choisis un autre jour.';
+      warn.style.display = 'block';
+    } else if (sportDays[target] && (sportDays[target].activities || []).length) {
+      const n = sportDays[target].activities.length;
+      warn.textContent = 'Ce jour a déjà ' + n + ' activité' + (n > 1 ? 's' : '') +
+        '. La copie viendra s\'ajouter à l\'existant.';
+      warn.style.display = 'block';
+    } else {
+      warn.style.display = 'none';
+    }
+  }
+
+  document.getElementById('btn-copy').addEventListener('click', () => {
+    if (!currentEditKey) return;
+    // On copie ce qui est actuellement à l'écran, y compris les modifications
+    // non encore enregistrées.
+    if (currentActivities.length === 0) {
+      showToast('Rien à copier : aucune activité');
+      return;
+    }
+    copySourceKey = currentEditKey;
+    document.getElementById('copy-source').textContent =
+      fmtDateLong(new Date(currentEditKey + 'T00:00:00')) + ' — ' +
+      currentActivities.length + ' activité' + (currentActivities.length > 1 ? 's' : '');
+
+    // par défaut : le lendemain
+    const next = new Date(currentEditKey + 'T00:00:00');
+    next.setDate(next.getDate() + 1);
+    document.getElementById('copy-date').value = fmtKey(next);
+    refreshCopyWarning();
+    document.getElementById('copy-overlay').classList.add('open');
+  });
+
+  document.getElementById('copy-date').addEventListener('change', refreshCopyWarning);
+  document.getElementById('copy-date').addEventListener('input', refreshCopyWarning);
+
+  function closeCopyModal() {
+    document.getElementById('copy-overlay').classList.remove('open');
+    copySourceKey = null;
+  }
+
+  document.getElementById('copy-cancel').addEventListener('click', closeCopyModal);
+  document.getElementById('copy-overlay').addEventListener('click', (e) => {
+    if (e.target.id === 'copy-overlay') closeCopyModal();
+  });
+
+  document.getElementById('copy-confirm').addEventListener('click', () => {
+    const target = document.getElementById('copy-date').value;
+    if (!target || !/^\d{4}-\d{2}-\d{2}$/.test(target)) {
+      showToast('Choisis une date valide');
+      return;
+    }
+    if (target === copySourceKey) {
+      showToast('Choisis un jour différent');
+      return;
+    }
+
+    // copie profonde pour que les deux jours restent indépendants
+    const copied = JSON.parse(JSON.stringify(currentActivities))
+      .map(a => { delete a.imported; return a; });
+
+    const existing = sportDays[target];
+    if (existing) {
+      existing.activities = (existing.activities || []).concat(copied);
+    } else {
+      sportDays[target] = {
+        activities: copied,
+        health: {},
+        feel: null,
+        note: '',
+        healthImported: false
+      };
+    }
+
+    if (saveData()) {
+      const label = new Date(target + 'T00:00:00')
+        .toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' });
+      closeCopyModal();
+      showToast('Copié vers le ' + label + ' ✓');
+      render();
+    }
+  });
+
+
   // ---- Tabs ----
   document.querySelectorAll('.tab-btn').forEach(btn => {
     btn.addEventListener('click', () => {
@@ -1780,9 +2080,428 @@
       btn.classList.add('active');
       const tab = btn.dataset.tab;
       document.getElementById('tab-calendar').style.display = tab === 'calendar' ? 'block' : 'none';
+      document.getElementById('tab-stats').style.display = tab === 'stats' ? 'block' : 'none';
       document.getElementById('tab-body').style.display = tab === 'body' ? 'block' : 'none';
       if (tab === 'body') renderWeightTab();
+      if (tab === 'stats') renderStatsTab();
     });
+  });
+
+  // ---- Onglet Stats ----
+
+  const STATS_PERIODS = [
+    { id: '4s',   label: '4 sem', days: 28 },
+    { id: '3m',   label: '3 mois', days: 90 },
+    { id: '1a',   label: '1 an',  days: 365 },
+    { id: 'tout', label: 'Tout',  days: null }
+  ];
+  let statsPeriod = '4s';
+  let selectedExercise = null;
+
+  function statsPeriodDef() {
+    return STATS_PERIODS.find(p => p.id === statsPeriod) || STATS_PERIODS[0];
+  }
+
+  function statsCutoffKey() {
+    const p = statsPeriodDef();
+    if (p.days === null) return null;
+    const c = new Date(todayObj);
+    c.setDate(c.getDate() - p.days);
+    return fmtKey(c);
+  }
+
+  // Jours de séance compris dans la période sélectionnée
+  function sessionKeysInPeriod() {
+    const cutoff = statsCutoffKey();
+    return Object.keys(sportDays)
+      .filter(k => {
+        const e = sportDays[k];
+        if (!e || !e.activities || e.activities.length === 0) return false;
+        return cutoff === null ? true : k >= cutoff;
+      })
+      .sort();
+  }
+
+  // Groupe musculaire d'un exercice, d'après la bibliothèque. Les exercices
+  // saisis librement (hors bibliothèque) sont rangés dans "Autre".
+  let muscleGroupIndex = null;
+  function groupOfExercise(name) {
+    if (!muscleGroupIndex) {
+      muscleGroupIndex = {};
+      EXERCISE_LIBRARY.forEach(([group, names]) => {
+        names.forEach(n => { muscleGroupIndex[normSearch(n)] = group; });
+      });
+    }
+    return muscleGroupIndex[normSearch(name)] || 'Autre';
+  }
+
+  // Volume d'une série : séries × reps × poids. Sans poids saisi, le volume
+  // n'est pas calculable — on renvoie 0 plutôt que d'inventer une valeur.
+  function exerciseVolume(ex) {
+    const sets = parseFloat(ex.sets);
+    const reps = parseFloat(ex.reps);
+    const weight = parseFloat(ex.weight);
+    if (!Number.isFinite(sets) || !Number.isFinite(reps) || !Number.isFinite(weight)) return 0;
+    return sets * reps * weight;
+  }
+
+  function renderStatsPeriodRow() {
+    const box = document.getElementById('stats-period-row');
+    box.innerHTML = '';
+    STATS_PERIODS.forEach(p => {
+      const chip = document.createElement('div');
+      chip.className = 'period-chip' + (p.id === statsPeriod ? ' active' : '');
+      chip.textContent = p.label;
+      chip.addEventListener('click', () => {
+        statsPeriod = p.id;
+        renderStatsTab();
+      });
+      box.appendChild(chip);
+    });
+  }
+
+  function renderStatsTab() {
+    renderStatsPeriodRow();
+    const keys = sessionKeysInPeriod();
+
+    // --- KPIs principaux ---
+    let totalVolume = 0, totalMinutes = 0;
+    keys.forEach(k => {
+      sportDays[k].activities.forEach(act => {
+        totalMinutes += (parseInt(act.duration) || 0);
+        (act.exercises || []).forEach(ex => { totalVolume += exerciseVolume(ex); });
+      });
+    });
+
+    // fréquence : nb de séances rapporté au nombre de semaines réellement écoulées
+    const p = statsPeriodDef();
+    let weeks;
+    if (p.days !== null) {
+      weeks = p.days / 7;
+    } else if (keys.length >= 2) {
+      const span = (new Date(keys[keys.length-1]+'T00:00:00') - new Date(keys[0]+'T00:00:00')) / 86400000;
+      weeks = Math.max(1, span / 7);
+    } else {
+      weeks = 1;
+    }
+    const freq = keys.length / weeks;
+
+    document.getElementById('kpi-freq').textContent = keys.length ? freq.toFixed(1) : '—';
+    document.getElementById('kpi-sessions').textContent = keys.length || '—';
+    document.getElementById('kpi-tonnage').textContent =
+      totalVolume > 0 ? (totalVolume / 1000).toFixed(1) : '—';
+    document.getElementById('kpi-duration').textContent =
+      totalMinutes > 0 ? (totalMinutes / 60).toFixed(1) : '—';
+
+    // colore la fréquence selon l'objectif
+    const freqEl = document.getElementById('kpi-freq');
+    freqEl.style.color = !keys.length ? ''
+      : (freq >= weeklyGoal ? 'var(--done)' : (freq >= weeklyGoal * 0.75 ? 'var(--accent)' : 'var(--danger)'));
+
+    renderVolumeChart(keys);
+    renderMuscleBreakdown(keys);
+    renderActivityBreakdown(keys);
+    renderExercisePicker(keys);
+  }
+
+  // --- Volume hebdomadaire (barres) ---
+  function renderVolumeChart(keys) {
+    const svg = document.getElementById('volume-chart');
+    svg.innerHTML = '';
+    const W = 340, H = 170, padL = 40, padR = 12, padT = 16, padB = 28;
+    const plotW = W - padL - padR, plotH = H - padT - padB;
+
+    // regroupe par semaine ISO (lundi)
+    const byWeek = {};
+    keys.forEach(k => {
+      const d = new Date(k + 'T00:00:00');
+      const dow = (d.getDay() + 6) % 7;
+      const monday = new Date(d);
+      monday.setDate(d.getDate() - dow);
+      const wk = fmtKey(monday);
+      if (!byWeek[wk]) byWeek[wk] = 0;
+      sportDays[k].activities.forEach(act => {
+        (act.exercises || []).forEach(ex => { byWeek[wk] += exerciseVolume(ex); });
+      });
+    });
+
+    const weeks = Object.keys(byWeek).sort();
+    if (weeks.length === 0 || weeks.every(w => byWeek[w] === 0)) {
+      const t = svgEl('text', { x: W/2, y: H/2 - 4, 'text-anchor': 'middle', 'font-size': 12, fill: '#8A8378' });
+      t.textContent = 'Pas encore de volume calculable';
+      svg.appendChild(t);
+      const t2 = svgEl('text', { x: W/2, y: H/2 + 14, 'text-anchor': 'middle', 'font-size': 10.5, fill: '#8A8378' });
+      t2.textContent = 'Saisis séries, reps et poids pour le voir apparaître';
+      svg.appendChild(t2);
+      return;
+    }
+
+    const vals = weeks.map(w => byWeek[w]);
+    const max = Math.max(...vals) * 1.1 || 1;
+
+    // graduations
+    for (let i = 0; i <= 3; i++) {
+      const v = max * i / 3;
+      const y = padT + plotH - (v / max) * plotH;
+      svg.appendChild(svgEl('line', { x1: padL, x2: W - padR, y1: y, y2: y, stroke: '#EFEBE4', 'stroke-width': 1 }));
+      const lbl = svgEl('text', { x: padL - 6, y: y + 3.5, 'text-anchor': 'end', 'font-size': 9, fill: '#8A8378' });
+      lbl.textContent = v >= 1000 ? (v/1000).toFixed(1) + 't' : Math.round(v);
+      svg.appendChild(lbl);
+    }
+
+    const n = weeks.length;
+    const slot = plotW / n;
+    const barW = Math.max(3, Math.min(26, slot * 0.62));
+
+    weeks.forEach((w, i) => {
+      const v = byWeek[w];
+      const h = (v / max) * plotH;
+      const x = padL + slot * i + (slot - barW) / 2;
+      const y = padT + plotH - h;
+      svg.appendChild(svgEl('rect', {
+        x: x, y: y, width: barW, height: Math.max(h, 1),
+        rx: Math.min(4, barW/2), fill: i === n-1 ? '#1B4332' : '#4A7C59'
+      }));
+    });
+
+    // étiquettes : première, milieu, dernière
+    const idxs = n <= 2 ? [0, n-1] : [0, Math.floor((n-1)/2), n-1];
+    [...new Set(idxs)].forEach((idx, j, arr) => {
+      const x = padL + slot * idx + slot/2;
+      const t = svgEl('text', {
+        x: x, y: H - 9, 'font-size': 9, fill: '#8A8378',
+        'text-anchor': j === 0 ? 'start' : (j === arr.length-1 ? 'end' : 'middle')
+      });
+      t.textContent = new Date(weeks[idx] + 'T00:00:00')
+        .toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' });
+      svg.appendChild(t);
+    });
+  }
+
+  function renderBars(containerId, rows, formatter) {
+    const box = document.getElementById(containerId);
+    box.innerHTML = '';
+    if (rows.length === 0) {
+      const e = document.createElement('div');
+      e.className = 'empty-hint';
+      e.textContent = 'Aucune donnée sur cette période.';
+      box.appendChild(e);
+      return;
+    }
+    const max = Math.max(...rows.map(r => r.value)) || 1;
+    rows.forEach(r => {
+      const row = document.createElement('div');
+      row.className = 'bar-row';
+      row.innerHTML =
+        '<div class="bar-top"><span class="bar-name">' + escapeHtml(r.label) + '</span>' +
+        '<span class="bar-val">' + formatter(r.value) + '</span></div>' +
+        '<div class="bar-track"><div class="bar-fill" style="width:' +
+        Math.max(2, (r.value / max) * 100) + '%"></div></div>';
+      box.appendChild(row);
+    });
+  }
+
+  function renderMuscleBreakdown(keys) {
+    const totals = {};
+    keys.forEach(k => {
+      sportDays[k].activities.forEach(act => {
+        (act.exercises || []).forEach(ex => {
+          const g = groupOfExercise(ex.name);
+          const v = exerciseVolume(ex);
+          if (!totals[g]) totals[g] = { volume: 0, count: 0 };
+          totals[g].volume += v;
+          totals[g].count++;
+        });
+      });
+    });
+
+    const anyVolume = Object.values(totals).some(t => t.volume > 0);
+    const rows = Object.keys(totals)
+      .map(g => ({ label: g, value: anyVolume ? totals[g].volume : totals[g].count, count: totals[g].count }))
+      .sort((a, b) => b.value - a.value);
+
+    renderBars('muscle-breakdown', rows, v =>
+      anyVolume
+        ? (v >= 1000 ? (v/1000).toFixed(1) + ' t' : Math.round(v) + ' kg')
+        : v + ' exercice' + (v > 1 ? 's' : '')
+    );
+  }
+
+  function renderActivityBreakdown(keys) {
+    const totals = {};
+    keys.forEach(k => {
+      sportDays[k].activities.forEach(act => {
+        const t = TYPES.find(x => x.id === act.type);
+        const label = t ? (t.emoji + ' ' + t.label) : 'Autre';
+        totals[label] = (totals[label] || 0) + (parseInt(act.duration) || 0);
+      });
+    });
+    const rows = Object.keys(totals)
+      .map(l => ({ label: l, value: totals[l] }))
+      .sort((a, b) => b.value - a.value);
+
+    renderBars('activity-breakdown', rows, v =>
+      v >= 60 ? Math.floor(v/60) + 'h' + (v%60 ? String(v%60).padStart(2,'0') : '') : v + ' min'
+    );
+  }
+
+  // --- Progression sur un exercice ---
+  function renderExercisePicker(keys) {
+    const sel = document.getElementById('exercise-picker');
+    const names = new Set();
+    keys.forEach(k => {
+      sportDays[k].activities.forEach(act => {
+        (act.exercises || []).forEach(ex => {
+          if (ex.name && Number.isFinite(parseFloat(ex.weight))) names.add(ex.name);
+        });
+      });
+    });
+
+    const list = [...names].sort((a, b) => a.localeCompare(b, 'fr'));
+    sel.innerHTML = '';
+
+    if (list.length === 0) {
+      const o = document.createElement('option');
+      o.textContent = 'Aucun exercice avec poids saisi';
+      sel.appendChild(o);
+      sel.disabled = true;
+      renderProgressChart(null, keys);
+      return;
+    }
+
+    sel.disabled = false;
+    if (!selectedExercise || !list.includes(selectedExercise)) selectedExercise = list[0];
+    list.forEach(n => {
+      const o = document.createElement('option');
+      o.value = n; o.textContent = n;
+      if (n === selectedExercise) o.selected = true;
+      sel.appendChild(o);
+    });
+    renderProgressChart(selectedExercise, keys);
+  }
+
+  function renderProgressChart(exName, keys) {
+    const svg = document.getElementById('progress-chart');
+    const summary = document.getElementById('progress-summary');
+    svg.innerHTML = '';
+    summary.innerHTML = '';
+
+    const W = 340, H = 170, padL = 38, padR = 12, padT = 18, padB = 28;
+    const plotW = W - padL - padR, plotH = H - padT - padB;
+
+    if (!exName) {
+      const t = svgEl('text', { x: W/2, y: H/2, 'text-anchor': 'middle', 'font-size': 11.5, fill: '#8A8378' });
+      t.textContent = 'Saisis le poids de tes exercices pour suivre ta progression';
+      svg.appendChild(t);
+      return;
+    }
+
+    // charge maximale de la journée pour cet exercice
+    const series = [];
+    keys.forEach(k => {
+      let best = null;
+      sportDays[k].activities.forEach(act => {
+        (act.exercises || []).forEach(ex => {
+          if (ex.name === exName) {
+            const w = parseFloat(ex.weight);
+            if (Number.isFinite(w) && (best === null || w > best)) best = w;
+          }
+        });
+      });
+      if (best !== null) series.push([k, best]);
+    });
+
+    if (series.length === 0) {
+      const t = svgEl('text', { x: W/2, y: H/2, 'text-anchor': 'middle', 'font-size': 11.5, fill: '#8A8378' });
+      t.textContent = 'Aucune donnée pour cet exercice';
+      svg.appendChild(t);
+      return;
+    }
+
+    const vals = series.map(s => s[1]);
+    const record = Math.max(...vals);
+    const first = vals[0], last = vals[vals.length - 1];
+    const diff = last - first;
+
+    summary.innerHTML =
+      'Record : <strong>' + record + ' kg</strong> · ' +
+      series.length + ' séance' + (series.length > 1 ? 's' : '') +
+      (series.length > 1
+        ? ' · Évolution : <strong style="color:' + (diff >= 0 ? 'var(--done)' : 'var(--danger)') + '">' +
+          (diff > 0 ? '+' : '') + diff + ' kg</strong>'
+        : '');
+
+    if (series.length === 1) {
+      const t = svgEl('text', { x: W/2, y: H/2, 'text-anchor': 'middle', 'font-size': 22, 'font-weight': '800', fill: '#1B4332' });
+      t.textContent = vals[0] + ' kg';
+      svg.appendChild(t);
+      return;
+    }
+
+    let min = Math.min(...vals), max = Math.max(...vals);
+    const span = (max - min) || Math.max(1, max * 0.05);
+    min -= span * 0.2; max += span * 0.2;
+    const range = max - min;
+
+    const t0 = new Date(series[0][0] + 'T00:00:00').getTime();
+    const t1 = new Date(series[series.length-1][0] + 'T00:00:00').getTime();
+    const tSpan = (t1 - t0) || 1;
+    const pts = series.map(([k, v]) => [
+      padL + ((new Date(k + 'T00:00:00').getTime() - t0) / tSpan) * plotW,
+      padT + plotH - ((v - min) / range) * plotH
+    ]);
+
+    for (let i = 0; i <= 3; i++) {
+      const v = min + range * i / 3;
+      const y = padT + plotH - ((v - min) / range) * plotH;
+      svg.appendChild(svgEl('line', { x1: padL, x2: W-padR, y1: y, y2: y, stroke: '#EFEBE4', 'stroke-width': 1 }));
+      const lbl = svgEl('text', { x: padL - 6, y: y + 3.5, 'text-anchor': 'end', 'font-size': 9, fill: '#8A8378' });
+      lbl.textContent = Math.round(v);
+      svg.appendChild(lbl);
+    }
+
+    svg.appendChild(svgEl('path', {
+      d: pts.map((p, i) => (i ? 'L' : 'M') + p[0].toFixed(1) + ',' + p[1].toFixed(1)).join(' '),
+      fill: 'none', stroke: '#E85D3D', 'stroke-width': 2.5,
+      'stroke-linecap': 'round', 'stroke-linejoin': 'round'
+    }));
+
+    if (pts.length <= 40) {
+      pts.forEach(p => svg.appendChild(svgEl('circle', {
+        cx: p[0], cy: p[1], r: 3, fill: '#FAF8F5', stroke: '#E85D3D', 'stroke-width': 1.6
+      })));
+    }
+
+    const idxs = pts.length <= 2 ? [0, pts.length-1] : [0, Math.floor((pts.length-1)/2), pts.length-1];
+    [...new Set(idxs)].forEach((idx, j, arr) => {
+      const t = svgEl('text', {
+        x: pts[idx][0], y: H - 9, 'font-size': 9, fill: '#8A8378',
+        'text-anchor': j === 0 ? 'start' : (j === arr.length-1 ? 'end' : 'middle')
+      });
+      t.textContent = new Date(series[idx][0] + 'T00:00:00')
+        .toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' });
+      svg.appendChild(t);
+    });
+  }
+
+  document.getElementById('exercise-picker').addEventListener('change', (e) => {
+    selectedExercise = e.target.value;
+    renderProgressChart(selectedExercise, sessionKeysInPeriod());
+  });
+
+  // --- Objectif hebdo modifiable ---
+  document.getElementById('goal-card').addEventListener('click', () => {
+    const val = prompt('Objectif de séances par semaine :', String(weeklyGoal));
+    if (val === null) return;
+    const n = parseInt(val);
+    if (!Number.isFinite(n) || n < 1 || n > 14) {
+      showToast('Entre un nombre entre 1 et 14');
+      return;
+    }
+    weeklyGoal = n;
+    saveGoal();
+    render();
+    showToast('Objectif : ' + n + ' séances / semaine');
   });
 
   // ---- Suivi corporel ----
@@ -1825,129 +2544,292 @@
     });
   }
 
+  const PERIODS = [
+    { id: '30j',  label: '30 j',  days: 30 },
+    { id: '3m',   label: '3 mois', days: 90 },
+    { id: '1a',   label: '1 an',  days: 365 },
+    { id: 'tout', label: 'Tout',  days: null }
+  ];
+
+  let activePeriod = '30j';
+
+  function renderPeriodRow() {
+    const box = document.getElementById('period-row');
+    box.innerHTML = '';
+    PERIODS.forEach(p => {
+      const chip = document.createElement('div');
+      chip.className = 'period-chip' + (p.id === activePeriod ? ' active' : '');
+      chip.textContent = p.label;
+      chip.addEventListener('click', () => {
+        activePeriod = p.id;
+        renderWeightTab();
+      });
+      box.appendChild(chip);
+    });
+  }
+
+  function periodDef() {
+    return PERIODS.find(p => p.id === activePeriod) || PERIODS[0];
+  }
+
+  // Dates ayant une valeur pour la mesure active, filtrées sur la période choisie
+  function keysForPeriod(metric) {
+    let keys = Object.keys(weightEntries)
+      .filter(k => getMetric(k, metric) !== null)
+      .sort();
+    const p = periodDef();
+    if (p.days !== null) {
+      const cutoff = new Date(todayObj);
+      cutoff.setDate(cutoff.getDate() - p.days);
+      const cutoffKey = fmtKey(cutoff);
+      keys = keys.filter(k => k >= cutoffKey);
+    }
+    return keys;
+  }
+
   function renderWeightTab() {
     renderMetricTabs();
+    renderPeriodRow();
     const def = metricDef(activeMetric);
 
-    // dates ayant une valeur pour la mesure sélectionnée
-    const keys = Object.keys(weightEntries)
+    const allKeys = Object.keys(weightEntries)
       .filter(k => getMetric(k, activeMetric) !== null)
       .sort();
+    const keys = keysForPeriod(activeMetric);
 
-    const current = keys.length ? getMetric(keys[keys.length - 1], activeMetric) : null;
+    // Valeur courante : toujours la dernière connue, même hors période affichée
+    const current = allKeys.length ? getMetric(allKeys[allKeys.length - 1], activeMetric) : null;
     document.getElementById('weight-current').textContent =
       current !== null ? current.toFixed(def.decimals) : '—';
     document.getElementById('weight-current-label').textContent =
       def.label + (def.unit ? ' (' + def.unit + ')' : '');
 
-    const cutoff = new Date(todayObj);
-    cutoff.setDate(cutoff.getDate() - 30);
-    const cutoffKey = fmtKey(cutoff);
-    const pastKeys = keys.filter(k => k <= cutoffKey);
+    // Évolution : premier vs dernier point de la période affichée
     const changeEl = document.getElementById('weight-change');
-    if (current !== null && pastKeys.length) {
-      const pastVal = getMetric(pastKeys[pastKeys.length - 1], activeMetric);
-      const diff = current - pastVal;
-      changeEl.textContent = (diff >= 0 ? '+' : '') + diff.toFixed(def.decimals);
+    const changeLbl = document.getElementById('weight-change-label');
+    if (keys.length >= 2) {
+      const first = getMetric(keys[0], activeMetric);
+      const last = getMetric(keys[keys.length - 1], activeMetric);
+      const diff = last - first;
+      changeEl.textContent = (diff > 0 ? '+' : '') + diff.toFixed(def.decimals);
+      changeEl.style.color = Math.abs(diff) < 0.05 ? 'var(--ink-soft)'
+        : (diff > 0 ? 'var(--accent)' : 'var(--done)');
     } else {
       changeEl.textContent = '—';
+      changeEl.style.color = '';
     }
+    if (changeLbl) changeLbl.textContent = 'Évolution ' + periodDef().label.replace(' ', '');
 
     renderWeightChart(keys, def);
+    renderChartStats(keys, def);
     renderWeightHistory(keys, def);
+  }
+
+  function renderChartStats(keys, def) {
+    const box = document.getElementById('chart-stats');
+    box.innerHTML = '';
+    if (keys.length === 0) return;
+
+    const vals = keys.map(k => getMetric(k, def.id));
+    const min = Math.min(...vals);
+    const max = Math.max(...vals);
+    const avg = vals.reduce((a, b) => a + b, 0) / vals.length;
+
+    [
+      [min.toFixed(def.decimals), 'Minimum'],
+      [avg.toFixed(def.decimals), 'Moyenne'],
+      [max.toFixed(def.decimals), 'Maximum']
+    ].forEach(([val, lbl]) => {
+      const el = document.createElement('div');
+      el.className = 'chart-stat';
+      el.innerHTML = '<div class="cs-val">' + val + '</div><div class="cs-lbl">' + lbl + '</div>';
+      box.appendChild(el);
+    });
+  }
+
+  function svgEl(tag, attrs) {
+    const el = document.createElementNS('http://www.w3.org/2000/svg', tag);
+    for (const k in attrs) el.setAttribute(k, attrs[k]);
+    return el;
   }
 
   function renderWeightChart(keys, def) {
     const svg = document.getElementById('weight-chart');
     svg.innerHTML = '';
-    const recent = keys.slice(-30);
 
-    if (recent.length < 2) {
-      const txt = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-      txt.setAttribute('x', '170');
-      txt.setAttribute('y', '88');
-      txt.setAttribute('text-anchor', 'middle');
-      txt.setAttribute('font-size', '12');
-      txt.setAttribute('fill', '#8A8378');
-      txt.textContent = recent.length ? 'Une seule mesure — la courbe arrive' : 'Aucune donnée';
-      svg.appendChild(txt);
+    const W = 340, H = 210;
+    const padL = 38, padR = 12, padT = 18, padB = 30;
+    const plotW = W - padL - padR;
+    const plotH = H - padT - padB;
+
+    if (keys.length === 0) {
+      svg.appendChild(svgEl('text', {
+        x: W/2, y: H/2, 'text-anchor': 'middle', 'font-size': 12, fill: '#8A8378'
+      })).textContent = 'Aucune donnée sur cette période';
       return;
     }
 
-    const values = recent.map(k => getMetric(k, def.id));
-    const min = Math.min(...values);
-    const max = Math.max(...values);
-    const range = (max - min) || 1;
-    const padTop = 22, padBottom = 30, padX = 34, w = 340, h = 170;
+    if (keys.length === 1) {
+      const only = getMetric(keys[0], def.id);
+      const t1 = svgEl('text', { x: W/2, y: H/2 - 6, 'text-anchor': 'middle', 'font-size': 24, 'font-weight': '800', fill: '#1B4332' });
+      t1.textContent = only.toFixed(def.decimals) + (def.unit ? ' ' + def.unit : '');
+      svg.appendChild(t1);
+      const t2 = svgEl('text', { x: W/2, y: H/2 + 14, 'text-anchor': 'middle', 'font-size': 11, fill: '#8A8378' });
+      t2.textContent = 'Une seule mesure — la courbe apparaîtra ensuite';
+      svg.appendChild(t2);
+      return;
+    }
 
-    // graduations min / max
-    [[max, padTop], [min, h - padBottom]].forEach(([val, y]) => {
-      const lbl = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-      lbl.setAttribute('x', '6');
-      lbl.setAttribute('y', y + 4);
-      lbl.setAttribute('font-size', '10');
-      lbl.setAttribute('fill', '#8A8378');
-      lbl.textContent = val.toFixed(def.decimals);
-      svg.appendChild(lbl);
+    const vals = keys.map(k => getMetric(k, def.id));
+    let min = Math.min(...vals);
+    let max = Math.max(...vals);
+    // marge verticale pour que la courbe ne colle pas aux bords
+    const span = (max - min) || Math.max(1, Math.abs(max) * 0.02);
+    min -= span * 0.15;
+    max += span * 0.15;
+    const range = max - min;
 
-      const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
-      line.setAttribute('x1', padX - 4); line.setAttribute('x2', w - 10);
-      line.setAttribute('y1', y); line.setAttribute('y2', y);
-      line.setAttribute('stroke', '#E8E2D8');
-      line.setAttribute('stroke-width', '1');
-      svg.appendChild(line);
-    });
+    // conversion date -> position X, proportionnelle au temps réel écoulé
+    const t0 = new Date(keys[0] + 'T00:00:00').getTime();
+    const t1 = new Date(keys[keys.length - 1] + 'T00:00:00').getTime();
+    const tSpan = (t1 - t0) || 1;
+    const xOf = k => padL + ((new Date(k + 'T00:00:00').getTime() - t0) / tSpan) * plotW;
+    const yOf = v => padT + plotH - ((v - min) / range) * plotH;
 
-    const pts = recent.map((k, i) => {
-      const x = padX + (i / (recent.length - 1)) * (w - padX - 10);
-      const y = (h - padBottom) - ((getMetric(k, def.id) - min) / range) * (h - padTop - padBottom);
-      return [x, y];
-    });
-
-    const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-    path.setAttribute('d', pts.map((p, i) => (i === 0 ? 'M' : 'L') + p[0].toFixed(1) + ',' + p[1].toFixed(1)).join(' '));
-    path.setAttribute('fill', 'none');
-    path.setAttribute('stroke', '#1B4332');
-    path.setAttribute('stroke-width', '2.5');
-    path.setAttribute('stroke-linecap', 'round');
-    path.setAttribute('stroke-linejoin', 'round');
-    svg.appendChild(path);
-
-    pts.forEach(p => {
-      const c = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
-      c.setAttribute('cx', p[0]); c.setAttribute('cy', p[1]);
-      c.setAttribute('r', '2.5'); c.setAttribute('fill', '#1B4332');
-      svg.appendChild(c);
-    });
-
-    // dates aux extrémités
-    [[recent[0], pts[0][0], 'start'], [recent[recent.length-1], pts[pts.length-1][0], 'end']]
-      .forEach(([k, x, anchor]) => {
-        const t = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-        t.setAttribute('x', x); t.setAttribute('y', h - 10);
-        t.setAttribute('font-size', '10'); t.setAttribute('fill', '#8A8378');
-        t.setAttribute('text-anchor', anchor);
-        t.textContent = new Date(k + 'T00:00:00').toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' });
-        svg.appendChild(t);
+    // --- grille horizontale + graduations Y ---
+    const TICKS = 4;
+    for (let i = 0; i <= TICKS; i++) {
+      const v = min + (range * i / TICKS);
+      const y = yOf(v);
+      svg.appendChild(svgEl('line', {
+        x1: padL, x2: W - padR, y1: y, y2: y,
+        stroke: '#EFEBE4', 'stroke-width': 1
+      }));
+      const lbl = svgEl('text', {
+        x: padL - 6, y: y + 3.5, 'text-anchor': 'end',
+        'font-size': 9.5, fill: '#8A8378'
       });
+      lbl.textContent = v.toFixed(def.decimals);
+      svg.appendChild(lbl);
+    }
+
+    const pts = keys.map(k => [xOf(k), yOf(getMetric(k, def.id))]);
+
+    // --- aire dégradée sous la courbe ---
+    const defs = svgEl('defs', {});
+    const grad = svgEl('linearGradient', { id: 'chartGrad', x1: '0', y1: '0', x2: '0', y2: '1' });
+    grad.appendChild(svgEl('stop', { offset: '0%', 'stop-color': '#1B4332', 'stop-opacity': '0.18' }));
+    grad.appendChild(svgEl('stop', { offset: '100%', 'stop-color': '#1B4332', 'stop-opacity': '0' }));
+    defs.appendChild(grad);
+    svg.appendChild(defs);
+
+    // --- courbe lissée (spline de Catmull-Rom convertie en Bézier) ---
+    function smoothPath(points) {
+      if (points.length < 3) {
+        return points.map((p, i) => (i ? 'L' : 'M') + p[0].toFixed(1) + ',' + p[1].toFixed(1)).join(' ');
+      }
+      let d = 'M' + points[0][0].toFixed(1) + ',' + points[0][1].toFixed(1);
+      for (let i = 0; i < points.length - 1; i++) {
+        const p0 = points[i - 1] || points[i];
+        const p1 = points[i];
+        const p2 = points[i + 1];
+        const p3 = points[i + 2] || p2;
+        const c1x = p1[0] + (p2[0] - p0[0]) / 6;
+        const c1y = p1[1] + (p2[1] - p0[1]) / 6;
+        const c2x = p2[0] - (p3[0] - p1[0]) / 6;
+        const c2y = p2[1] - (p3[1] - p1[1]) / 6;
+        d += ' C' + c1x.toFixed(1) + ',' + c1y.toFixed(1) +
+             ' ' + c2x.toFixed(1) + ',' + c2y.toFixed(1) +
+             ' ' + p2[0].toFixed(1) + ',' + p2[1].toFixed(1);
+      }
+      return d;
+    }
+
+    const linePath = smoothPath(pts);
+
+    svg.appendChild(svgEl('path', {
+      d: linePath + ' L' + pts[pts.length-1][0].toFixed(1) + ',' + (padT + plotH) +
+         ' L' + pts[0][0].toFixed(1) + ',' + (padT + plotH) + ' Z',
+      fill: 'url(#chartGrad)', stroke: 'none'
+    }));
+
+    svg.appendChild(svgEl('path', {
+      d: linePath, fill: 'none', stroke: '#1B4332',
+      'stroke-width': 2.5, 'stroke-linecap': 'round', 'stroke-linejoin': 'round'
+    }));
+
+    // --- points : discrets si nombreux, visibles si peu ---
+    const showDots = pts.length <= 40;
+    if (showDots) {
+      const r = pts.length > 20 ? 1.8 : 3;
+      pts.forEach(p => {
+        svg.appendChild(svgEl('circle', {
+          cx: p[0], cy: p[1], r: r, fill: '#FAF8F5',
+          stroke: '#1B4332', 'stroke-width': 1.6
+        }));
+      });
+    }
+
+    // --- dernier point mis en valeur ---
+    const last = pts[pts.length - 1];
+    svg.appendChild(svgEl('circle', { cx: last[0], cy: last[1], r: 5.5, fill: '#1B4332', opacity: '0.15' }));
+    svg.appendChild(svgEl('circle', { cx: last[0], cy: last[1], r: 3.2, fill: '#1B4332' }));
+
+    // --- étiquettes de dates en bas ---
+    const dateFmt = k => {
+      const d = new Date(k + 'T00:00:00');
+      const p = periodDef();
+      return (p.days === null || p.days > 120)
+        ? d.toLocaleDateString('fr-FR', { month: 'short', year: '2-digit' })
+        : d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' });
+    };
+
+    const labelIdx = keys.length <= 2 ? [0, keys.length - 1]
+      : [0, Math.floor((keys.length - 1) / 2), keys.length - 1];
+
+    [...new Set(labelIdx)].forEach((idx, n, arr) => {
+      const x = pts[idx][0];
+      const anchor = n === 0 ? 'start' : (n === arr.length - 1 ? 'end' : 'middle');
+      const t = svgEl('text', {
+        x: x, y: H - 10, 'font-size': 9.5, fill: '#8A8378', 'text-anchor': anchor
+      });
+      t.textContent = dateFmt(keys[idx]);
+      svg.appendChild(t);
+    });
   }
 
   function renderWeightHistory(keys, def) {
     const container = document.getElementById('weight-history');
     container.innerHTML = '';
-    const reversed = [...keys].reverse().slice(0, 30);
+    const reversed = [...keys].reverse();
     if (reversed.length === 0) {
       container.style.display = 'none';
       return;
     }
     container.style.display = 'block';
-    reversed.forEach(key => {
+
+    reversed.slice(0, 60).forEach((key, i) => {
       const row = document.createElement('div');
       row.className = 'exercise-row';
-      const dateLabel = new Date(key + 'T00:00:00').toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' });
+      const dateLabel = new Date(key + 'T00:00:00')
+        .toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
       const val = getMetric(key, def.id);
-      row.innerHTML = '<div>' + dateLabel + '</div>' +
-        '<div style="font-weight:700;">' + val.toFixed(def.decimals) + ' ' + def.unit + '</div>';
+
+      // écart avec la mesure précédente (chronologiquement)
+      const prevKey = reversed[i + 1];
+      let deltaHtml = '';
+      if (prevKey) {
+        const d = val - getMetric(prevKey, def.id);
+        if (Math.abs(d) >= 0.05) {
+          const col = d > 0 ? 'var(--accent)' : 'var(--done)';
+          deltaHtml = '<span style="font-size:11px;color:' + col + ';margin-left:8px;">' +
+            (d > 0 ? '+' : '') + d.toFixed(def.decimals) + '</span>';
+        }
+      }
+
+      row.innerHTML = '<div style="font-size:13px;">' + dateLabel + '</div>' +
+        '<div style="font-weight:700;">' + val.toFixed(def.decimals) +
+        (def.unit ? ' ' + def.unit : '') + deltaHtml + '</div>';
       container.appendChild(row);
     });
   }
@@ -2214,6 +3096,7 @@
     return touchedKey || key;
   }
 
+  loadGoal();
   loadWeightData();
   loadData();
 
