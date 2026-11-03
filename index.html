@@ -148,6 +148,73 @@
   }
 
   /* Goal bar */
+  .program-card {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-left: 3px solid var(--accent);
+    border-radius: 16px;
+    padding: 12px 16px;
+    margin-bottom: 10px;
+  }
+
+  .prog-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 6px;
+  }
+
+  .prog-badge {
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--accent);
+    background: var(--accent-soft);
+    padding: 2px 8px;
+    border-radius: 8px;
+  }
+
+  .prog-badge.deload {
+    color: var(--done);
+    background: var(--done-soft);
+  }
+
+  .prog-toggle {
+    font-size: 15px;
+    color: var(--ink-soft);
+    cursor: pointer;
+    padding: 2px 4px;
+  }
+
+  .prog-title { font-size: 15px; font-weight: 800; }
+  .prog-focus { font-size: 12px; color: var(--ink-soft); margin-top: 2px; }
+  .prog-ex { font-size: 11.5px; color: var(--ink-soft); margin-top: 6px; line-height: 1.5; }
+
+  .prog-setup {
+    background: var(--card);
+    border: 1.5px dashed var(--accent);
+    border-radius: 16px;
+    padding: 14px 16px;
+    margin-bottom: 10px;
+    text-align: center;
+    cursor: pointer;
+  }
+
+  .prog-setup .ps-title { font-size: 13px; font-weight: 700; color: var(--accent); }
+  .prog-setup .ps-sub { font-size: 11.5px; color: var(--ink-soft); margin-top: 3px; }
+
+  .btn-prefill {
+    width: 100%;
+    background: var(--accent-soft);
+    border: 1px solid var(--accent);
+    color: var(--accent);
+    border-radius: 12px;
+    padding: 11px;
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+    margin-bottom: 14px;
+  }
+
   .goal-card {
     background: var(--card);
     border: 1px solid var(--line);
@@ -255,6 +322,15 @@
   .day.future { color: var(--ink-soft); opacity: 0.6; }
 
   .day .type-icon { font-size: 10px; margin-top: 1px; }
+
+  .day .plan-dot {
+    position: absolute;
+    bottom: 5px;
+    width: 4px;
+    height: 4px;
+    border-radius: 50%;
+    background: var(--accent);
+  }
 
   .legend {
     display: flex;
@@ -950,6 +1026,21 @@
     </div>
   </div>
 
+  <div class="prog-setup" id="prog-setup" style="display:none;">
+    <div class="ps-title">Activer le programme hybride</div>
+    <div class="ps-sub">4 séances / semaine · cycle de 4 semaines</div>
+  </div>
+
+  <div class="program-card" id="program-card" style="display:none;">
+    <div class="prog-head">
+      <span class="prog-badge" id="prog-badge">Semaine 1</span>
+      <span class="prog-toggle" id="prog-settings">⚙</span>
+    </div>
+    <div class="prog-title" id="prog-title">—</div>
+    <div class="prog-focus" id="prog-focus"></div>
+    <div class="prog-ex" id="prog-ex"></div>
+  </div>
+
   <div class="goal-card" id="goal-card">
     <div class="goal-top">
       <span class="goal-label">Objectif hebdo ✎</span>
@@ -1076,6 +1167,8 @@
       <button class="icon-btn" id="sheet-close">✕</button>
     </div>
 
+    <button class="btn-prefill" id="btn-prefill" style="display:none;">⚡ Charger la séance prévue</button>
+
     <div class="field-label">Activités du jour</div>
     <div id="activity-list"></div>
     <button class="add-exercise-btn" id="add-activity-btn" style="margin-top:8px;">+ Ajouter une activité</button>
@@ -1139,6 +1232,7 @@
     <div style="font-size:14px;font-weight:700;margin-bottom:12px;" id="ex-modal-title">Ajouter un exercice</div>
     <input type="text" id="ex-name" placeholder="Nom de l'exercice (ex: Squat)" autocomplete="off">
     <div class="ex-suggestions" id="ex-suggestions"></div>
+    <div id="ex-db-status" style="font-size:10.5px;color:var(--ink-soft);margin-top:6px;"></div>
     <div class="row3" style="margin-top:8px;">
       <input type="number" id="ex-sets" placeholder="Séries" inputmode="numeric">
       <input type="number" id="ex-reps" placeholder="Reps" inputmode="numeric">
@@ -1219,6 +1313,129 @@
   let viewDate = new Date();
   viewDate.setDate(1);
   let currentEditKey = null;
+
+  // ---- Programme hybride (force + performance) ----
+  // Cycle de 4 semaines : 3 semaines de charge, la 4e allégée à 60 %.
+  // Le mardi alterne seuil (semaines impaires) et sortie facile (paires).
+  // Jours : 1 = lundi … 7 = dimanche.
+  const PROGRAM_START_KEY = 'sport-program-start-v1';
+  const PROGRAM_ON_KEY = 'sport-program-enabled-v1';
+
+  let programStart = null;   // 'YYYY-MM-DD' = lundi de la semaine 1
+  let programEnabled = false;
+
+  const PROGRAM = {
+    1: {
+      title: 'Force bas du corps',
+      type: 'muscu',
+      duration: 60,
+      focus: 'Lourd · 4 à 6 reps',
+      exercises: [
+        { name: 'Squat jump', sets: '4', reps: '3', weight: '0' },
+        { name: 'Squat barre', sets: '4', reps: '5', weight: '' },
+        { name: 'Soulevé de terre roumain', sets: '3', reps: '8', weight: '' },
+        { name: 'Fentes marchées', sets: '3', reps: '10', weight: '' },
+        { name: 'Leg curl', sets: '3', reps: '12', weight: '' },
+        { name: 'Mollets debout', sets: '3', reps: '15', weight: '' }
+      ]
+    },
+    2: {
+      title: 'Endurance',
+      type: 'course',
+      duration: 50,
+      focus: 'Vélo ou course',
+      variants: {
+        A: { label: 'Seuil — 3 × 8 min soutenu, 2 min récup', duration: 45 },
+        B: { label: 'Sortie longue facile — rester en conversation', duration: 55 }
+      },
+      exercises: []
+    },
+    4: {
+      title: 'Force haut du corps',
+      type: 'muscu',
+      duration: 60,
+      focus: 'Lourd · 5 à 8 reps',
+      exercises: [
+        { name: 'Pompes', sets: '3', reps: '5', weight: '0' },
+        { name: 'Développé couché barre', sets: '4', reps: '5', weight: '' },
+        { name: 'Tractions pronation', sets: '4', reps: '6', weight: '0' },
+        { name: 'Développé militaire haltères', sets: '3', reps: '8', weight: '' },
+        { name: 'Rowing haltère', sets: '3', reps: '10', weight: '' },
+        { name: 'Face pull', sets: '3', reps: '12', weight: '' },
+        { name: 'Curl barre', sets: '3', reps: '12', weight: '' }
+      ]
+    },
+    6: {
+      title: 'Conditionnement',
+      type: 'hiit',
+      duration: 25,
+      focus: 'Circuit 4 tours · 40 s / 20 s',
+      exercises: [
+        { name: 'Thruster', sets: '4', reps: '40', weight: '' },
+        { name: 'Burpees', sets: '4', reps: '40', weight: '0' },
+        { name: 'Squat jump', sets: '4', reps: '40', weight: '0' },
+        { name: 'High knees (montées de genoux)', sets: '4', reps: '40', weight: '0' }
+      ]
+    }
+  };
+
+  function loadProgram() {
+    try {
+      programStart = localStorage.getItem(PROGRAM_START_KEY) || null;
+      programEnabled = localStorage.getItem(PROGRAM_ON_KEY) === '1';
+    } catch (e) {}
+  }
+
+  function saveProgram() {
+    try {
+      if (programStart) localStorage.setItem(PROGRAM_START_KEY, programStart);
+      else localStorage.removeItem(PROGRAM_START_KEY);
+      localStorage.setItem(PROGRAM_ON_KEY, programEnabled ? '1' : '0');
+    } catch (e) {}
+  }
+
+  function mondayOf(dateObj) {
+    const d = new Date(dateObj);
+    const dow = (d.getDay() + 6) % 7;
+    d.setDate(d.getDate() - dow);
+    d.setHours(0, 0, 0, 0);
+    return d;
+  }
+
+  // Renvoie la séance prévue pour une date, ou null (jour de repos,
+  // programme désactivé, ou date antérieure au début du programme).
+  function plannedFor(dateKey) {
+    if (!programEnabled || !programStart) return null;
+    const d = new Date(dateKey + 'T00:00:00');
+    const startMonday = new Date(programStart + 'T00:00:00');
+    if (d < startMonday) return null;
+
+    const weeksElapsed = Math.floor((mondayOf(d) - startMonday) / (7 * 86400000));
+    if (weeksElapsed < 0) return null;
+
+    const cycleWeek = (weeksElapsed % 4) + 1;   // 1 à 4
+    const isDeload = cycleWeek === 4;
+    const dayNum = (d.getDay() + 6) % 7 + 1;    // 1 = lundi
+    const base = PROGRAM[dayNum];
+    if (!base) return null;
+
+    // alternance A/B pour les séances à variantes (mardi)
+    let variant = null;
+    if (base.variants) {
+      variant = (weeksElapsed % 2 === 0) ? base.variants.A : base.variants.B;
+    }
+
+    return {
+      day: dayNum,
+      cycleWeek: cycleWeek,
+      isDeload: isDeload,
+      title: base.title,
+      type: base.type,
+      duration: variant ? variant.duration : base.duration,
+      focus: variant ? variant.label : base.focus,
+      exercises: base.exercises || []
+    };
+  }
 
   const GOAL_STORAGE_KEY = 'sport-weekly-goal-v1';
   let weeklyGoal = 4;
@@ -1355,39 +1572,935 @@
     "Farmer's walk (marche du fermier)": 'Farmers Walk'
   };
 
-  // ---- Photos d'exercices (base publique free-exercise-db, domaine public) ----
-  // Téléchargée une seule fois (index allégé : juste noms + chemin d'image),
-  // mise en cache dans localStorage, puis associée à nos exercices français
-  // par recouvrement de mots-clés anglais. Aucune photo n'est bloquante :
-  // en cas d'échec réseau ou d'absence de correspondance, l'app continue
-  // normalement sans image.
-  const IMAGE_DB_URL = 'https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/dist/exercises.json';
+  // ---- Base d'exercices embarquée (free-exercise-db, domaine public) ----
+  // 876 exercices intégrés au fichier : aucun appel réseau, donc la recherche
+  // fonctionne hors-ligne, en 5G et dans les aperçus qui bloquent fetch().
+  // Format compact : Nom|indexMuscle|indexEquipement|aPhoto
   const IMAGE_BASE_URL = 'https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/';
-  const IMAGE_CACHE_KEY = 'exercise-image-db-v1';
-  const IMAGE_MAP_KEY = 'exercise-image-map-v1';
 
-  let exerciseImageMap = {};
+  const DB_MUSCLES = ['abdominals','abductors','adductors','biceps','calves','chest','forearms','glutes','hamstrings','lats','lower back','middle back','neck','quadriceps','shoulders','traps','triceps'];
+  const DB_EQUIP = ['barbell','dumbbell','cable','body only','machine','kettlebells','bands','medicine ball','exercise ball','e-z curl bar','foam roll','other'];
+
+  const EXERCISE_DB_RAW = `3/4 Sit-Up|0|3|1
+90/90 Hamstring|8|3|1
+Ab Crunch Machine|0|4|1
+Ab Roller|0|11|1
+Adductor|2|10|1
+Adductor/Groin|2|-1|1
+Advanced Kettlebell Windmill|0|5|1
+Air Bike|0|3|1
+All Fours Quad Stretch|13|3|1
+Alternate Hammer Curl|3|1|1
+Alternate Heel Touchers|0|3|1
+Alternate Incline Dumbbell Curl|3|1|1
+Alternate Leg Diagonal Bound|13|-1|1
+Alternating Cable Shoulder Press|14|2|1
+Alternating Deltoid Raise|14|1|1
+Alternating Floor Press|5|5|1
+Alternating Hang Clean|8|5|1
+Alternating Kettlebell Press|14|5|1
+Alternating Kettlebell Row|11|5|1
+Alternating Renegade Row|11|5|1
+Ankle Circles|4|-1|1
+Ankle On The Knee|7|-1|1
+Anterior Tibialis-SMR|4|11|1
+Anti-Gravity Press|14|0|1
+Arm Circles|14|-1|1
+Arnold Dumbbell Press|14|1|1
+Around The Worlds|5|1|1
+Atlas Stone Trainer|10|11|1
+Atlas Stones|10|11|1
+Axle Deadlift|10|11|1
+Back Flyes - With Bands|14|6|1
+Backward Drag|13|11|1
+Backward Medicine Ball Throw|14|7|1
+Balance Board|4|11|1
+Ball Leg Curl|8|8|1
+Band Assisted Pull-Up|9|11|1
+Band Good Morning|8|6|1
+Band Good Morning (Pull Through)|8|6|1
+Band Hip Adductions|2|6|1
+Band Pull Apart|14|6|1
+Band Skull Crusher|16|6|1
+Barbell Ab Rollout|0|0|1
+Barbell Ab Rollout - On Knees|0|0|1
+Barbell Bench Press - Medium Grip|5|0|1
+Barbell Curl|3|0|1
+Barbell Curls Lying Against An Incline|3|0|1
+Barbell Deadlift|10|0|1
+Barbell Full Squat|13|0|1
+Barbell Glute Bridge|7|0|1
+Barbell Guillotine Bench Press|5|0|1
+Barbell Hack Squat|13|0|1
+Barbell Hip Thrust|7|0|1
+Barbell Incline Bench Press - Medium Grip|5|0|1
+Barbell Incline Shoulder Raise|14|0|1
+Barbell Lunge|13|0|1
+Barbell Rear Delt Row|14|0|1
+Barbell Rollout from Bench|0|0|1
+Barbell Seated Calf Raise|4|0|1
+Barbell Shoulder Press|14|0|1
+Barbell Shrug|15|0|1
+Barbell Shrug Behind The Back|15|0|1
+Barbell Side Bend|0|0|1
+Barbell Side Split Squat|13|0|1
+Barbell Squat|13|0|1
+Barbell Squat To A Bench|13|0|1
+Barbell Step Ups|13|0|1
+Barbell Walking Lunge|13|0|1
+Battling Ropes|14|11|1
+Bear Crawl Sled Drags|13|11|1
+Behind Head Chest Stretch|5|11|1
+Bench Dips|16|3|1
+Bench Jump|13|3|1
+Bench Press - Powerlifting|16|0|1
+Bench Press - With Bands|5|6|1
+Bench Press with Chains|16|0|1
+Bench Sprint|13|11|1
+Bent-Arm Barbell Pullover|9|0|1
+Bent-Arm Dumbbell Pullover|5|1|1
+Bent-Knee Hip Raise|0|3|1
+Bent Over Barbell Row|11|0|1
+Bent Over Dumbbell Rear Delt Raise With Head On Bench|14|1|1
+Bent Over Low-Pulley Side Lateral|14|2|1
+Bent Over One-Arm Long Bar Row|11|0|1
+Bent Over Two-Arm Long Bar Row|11|0|1
+Bent Over Two-Dumbbell Row|11|1|1
+Bent Over Two-Dumbbell Row With Palms In|11|1|1
+Bent Press|0|5|1
+Bicycling|13|11|1
+Bicycling, Stationary|13|4|1
+Board Press|16|0|1
+Body-Up|16|3|1
+Body Tricep Press|16|3|1
+Bodyweight Flyes|5|9|1
+Bodyweight Mid Row|11|11|1
+Bodyweight Squat|13|3|1
+Bodyweight Walking Lunge|13|-1|1
+Bosu Ball Cable Crunch With Side Bends|0|2|1
+Bottoms-Up Clean From The Hang Position|6|5|1
+Bottoms Up|0|3|1
+Box Jump (Multiple Response)|8|11|1
+Box Skip|8|11|1
+Box Squat|13|0|1
+Box Squat with Bands|13|0|1
+Box Squat with Chains|13|0|1
+Brachialis-SMR|3|10|1
+Bradford/Rocky Presses|14|0|1
+Butt-Ups|0|3|1
+Butt Lift (Bridge)|7|3|1
+Butterfly|5|4|1
+Cable Chest Press|5|2|1
+Cable Crossover|5|2|1
+Cable Crunch|0|2|1
+Cable Deadlifts|13|2|1
+Cable Hammer Curls - Rope Attachment|3|2|1
+Cable Hip Adduction|13|2|1
+Cable Incline Pushdown|9|2|1
+Cable Incline Triceps Extension|16|2|1
+Cable Internal Rotation|14|2|1
+Cable Iron Cross|5|2|1
+Cable Judo Flip|0|2|1
+Cable Lying Triceps Extension|16|2|1
+Cable One Arm Tricep Extension|16|2|1
+Cable Preacher Curl|3|2|1
+Cable Rear Delt Fly|14|2|1
+Cable Reverse Crunch|0|2|1
+Cable Rope Overhead Triceps Extension|16|2|1
+Cable Rope Rear-Delt Rows|14|2|1
+Cable Russian Twists|0|2|1
+Cable Seated Crunch|0|2|1
+Cable Seated Lateral Raise|14|2|1
+Cable Shoulder Press|14|2|1
+Cable Shrugs|15|2|1
+Cable Wrist Curl|6|2|1
+Calf-Machine Shoulder Shrug|15|4|1
+Calf Press|4|4|1
+Calf Press On The Leg Press Machine|4|4|1
+Calf Raise On A Dumbbell|4|1|1
+Calf Raises - With Bands|4|6|1
+Calf Stretch Elbows Against Wall|4|-1|1
+Calf Stretch Hands Against Wall|4|-1|1
+Calves-SMR|4|10|1
+Car Deadlift|13|11|1
+Car Drivers|14|0|1
+Carioca Quick Step|2|-1|1
+Cat Stretch|10|-1|1
+Catch and Overhead Throw|9|7|1
+Chain Handle Extension|16|11|1
+Chain Press|5|11|1
+Chair Leg Extended Stretch|8|11|1
+Chair Lower Back Stretch|9|-1|1
+Chair Squat|13|4|1
+Chair Upper Body Stretch|14|11|1
+Chest And Front Of Shoulder Stretch|5|11|1
+Chest Push from 3 point stance|5|7|1
+Chest Push (multiple response)|5|7|1
+Chest Push (single response)|5|7|1
+Chest Push with Run Release|5|7|1
+Chest Stretch on Stability Ball|5|8|1
+Child's Pose|10|-1|1
+Chin-Up|9|3|1
+Chin To Chest Stretch|12|-1|1
+Circus Bell|14|11|1
+Clean|8|0|1
+Clean Deadlift|8|0|1
+Clean Pull|13|0|1
+Clean Shrug|15|0|1
+Clean and Jerk|14|0|1
+Clean and Press|14|0|1
+Clean from Blocks|13|0|1
+Clock Push-Up|5|3|1
+Close-Grip Barbell Bench Press|16|0|1
+Close-Grip Dumbbell Press|16|1|1
+Close-Grip EZ-Bar Curl with Band|3|9|1
+Close-Grip EZ-Bar Press|16|9|1
+Close-Grip EZ Bar Curl|3|0|1
+Close-Grip Front Lat Pulldown|9|2|1
+Close-Grip Push-Up off of a Dumbbell|16|3|1
+Close-Grip Standing Barbell Curl|3|0|1
+Cocoons|0|3|1
+Conan's Wheel|13|11|1
+Concentration Curls|3|1|1
+Cross-Body Crunch|0|3|1
+Cross Body Hammer Curl|3|1|1
+Cross Over - With Bands|5|6|1
+Crossover Reverse Lunge|10|-1|1
+Crucifix|14|11|1
+Crunch - Hands Overhead|0|3|1
+Crunch - Legs On Exercise Ball|0|3|1
+Crunches|0|3|1
+Cuban Press|14|1|1
+Dancer's Stretch|10|-1|1
+Dead Bug|0|3|1
+Deadlift with Bands|10|0|1
+Deadlift with Chains|10|0|1
+Decline Barbell Bench Press|5|0|1
+Decline Close-Grip Bench To Skull Crusher|16|0|1
+Decline Crunch|0|3|1
+Decline Dumbbell Bench Press|5|1|1
+Decline Dumbbell Flyes|5|1|1
+Decline Dumbbell Triceps Extension|16|1|1
+Decline EZ Bar Triceps Extension|16|0|1
+Decline Oblique Crunch|0|3|1
+Decline Push-Up|5|-1|1
+Decline Reverse Crunch|0|3|1
+Decline Smith Press|5|4|1
+Deficit Deadlift|10|0|1
+Depth Jump Leap|13|11|1
+Dip Machine|16|4|1
+Dips - Chest Version|5|11|1
+Dips - Triceps Version|16|3|1
+Donkey Calf Raises|4|11|1
+Double Kettlebell Alternating Hang Clean|8|5|1
+Double Kettlebell Jerk|14|5|1
+Double Kettlebell Push Press|14|5|1
+Double Kettlebell Snatch|14|5|1
+Double Kettlebell Windmill|0|5|1
+Double Leg Butt Kick|13|3|1
+Downward Facing Balance|7|8|1
+Drag Curl|3|0|1
+Drop Push|5|11|1
+Dumbbell Alternate Bicep Curl|3|1|1
+Dumbbell Bench Press|5|1|1
+Dumbbell Bench Press with Neutral Grip|5|1|1
+Dumbbell Bicep Curl|3|1|1
+Dumbbell Clean|8|1|1
+Dumbbell Floor Press|16|1|1
+Dumbbell Flyes|5|1|1
+Dumbbell Incline Row|11|1|1
+Dumbbell Incline Shoulder Raise|14|1|1
+Dumbbell Lunges|13|1|1
+Dumbbell Lying One-Arm Rear Lateral Raise|14|1|1
+Dumbbell Lying Pronation|6|1|1
+Dumbbell Lying Rear Lateral Raise|14|1|1
+Dumbbell Lying Supination|6|1|1
+Dumbbell One-Arm Shoulder Press|14|1|1
+Dumbbell One-Arm Triceps Extension|16|1|1
+Dumbbell One-Arm Upright Row|14|1|1
+Dumbbell Prone Incline Curl|3|1|1
+Dumbbell Raise|14|1|1
+Dumbbell Rear Lunge|13|1|1
+Dumbbell Scaption|14|1|1
+Dumbbell Seated Box Jump|13|1|1
+Dumbbell Seated One-Leg Calf Raise|4|1|1
+Dumbbell Shoulder Press|14|1|1
+Dumbbell Shrug|15|1|1
+Dumbbell Side Bend|0|1|1
+Dumbbell Squat|13|1|1
+Dumbbell Squat To A Bench|13|1|1
+Dumbbell Step Ups|13|1|1
+Dumbbell Tricep Extension -Pronated Grip|16|1|1
+Dynamic Back Stretch|9|-1|1
+Dynamic Chest Stretch|5|-1|1
+EZ-Bar Curl|3|9|1
+EZ-Bar Skullcrusher|16|9|1
+Elbow Circles|14|-1|1
+Elbow to Knee|0|3|1
+Elbows Back|5|-1|1
+Elevated Back Lunge|13|0|1
+Elevated Cable Rows|9|2|1
+Elliptical Trainer|13|4|1
+Exercise Ball Crunch|0|8|1
+Exercise Ball Pull-In|0|8|1
+Extended Range One-Arm Kettlebell Floor Press|5|5|1
+External Rotation|14|1|1
+External Rotation with Band|14|6|1
+External Rotation with Cable|14|2|1
+Face Pull|14|2|1
+Farmer's Walk|6|11|1
+Fast Skipping|13|3|1
+Finger Curls|6|0|1
+Flat Bench Cable Flyes|5|2|1
+Flat Bench Leg Pull-In|0|3|1
+Flat Bench Lying Leg Raise|0|3|1
+Flexor Incline Dumbbell Curls|3|1|1
+Floor Glute-Ham Raise|8|-1|1
+Floor Press|16|0|1
+Floor Press with Chains|16|0|1
+Flutter Kicks|7|3|1
+Foot-SMR|4|11|1
+Forward Drag with Press|5|11|1
+Frankenstein Squat|13|0|1
+Freehand Jump Squat|13|3|1
+Frog Hops|13|-1|1
+Frog Sit-Ups|0|3|1
+Front Barbell Squat|13|0|1
+Front Barbell Squat To A Bench|13|0|1
+Front Box Jump|8|11|1
+Front Cable Raise|14|2|1
+Front Cone Hops (or hurdle hops)|13|11|1
+Front Dumbbell Raise|14|1|1
+Front Incline Dumbbell Raise|14|1|1
+Front Leg Raises|8|3|1
+Front Plate Raise|14|11|1
+Front Raise And Pullover|5|0|1
+Front Squat (Clean Grip)|13|0|1
+Front Squats With Two Kettlebells|13|5|1
+Front Two-Dumbbell Raise|14|1|1
+Full Range-Of-Motion Lat Pulldown|9|2|1
+Gironda Sternum Chins|9|11|1
+Glute Ham Raise|8|4|1
+Glute Kickback|7|3|1
+Goblet Squat|13|5|1
+Good Morning|8|0|1
+Good Morning off Pins|8|0|1
+Gorilla Chin/Crunch|0|3|1
+Groin and Back Stretch|2|-1|1
+Groiners|2|3|1
+Hack Squat|13|4|1
+Hammer Curls|3|1|1
+Hammer Grip Incline DB Bench Press|5|1|1
+Hamstring-SMR|8|10|1
+Hamstring Stretch|8|-1|1
+Handstand Push-Ups|14|3|1
+Hang Clean|13|0|1
+Hang Clean - Below the Knees|13|0|1
+Hang Snatch|8|0|1
+Hang Snatch - Below Knees|8|0|1
+Hanging Bar Good Morning|8|0|1
+Hanging Leg Raise|0|3|1
+Hanging Pike|0|3|1
+Heaving Snatch Balance|13|0|1
+Heavy Bag Thrust|5|11|1
+High Cable Curls|3|2|1
+Hip Circles (prone)|1|3|1
+Hip Extension with Bands|7|6|1
+Hip Flexion with Band|13|6|1
+Hip Lift with Band|7|6|1
+Hug A Ball|10|8|1
+Hug Knees To Chest|10|-1|1
+Hurdle Hops|8|11|1
+Hyperextensions (Back Extensions)|10|11|1
+Hyperextensions With No Hyperextension Bench|10|3|1
+IT Band and Glute Stretch|1|11|1
+Iliotibial Tract-SMR|1|10|1
+Inchworm|8|3|1
+Incline Barbell Triceps Extension|16|0|1
+Incline Bench Pull|11|0|1
+Incline Cable Chest Press|5|2|1
+Incline Cable Flye|5|2|1
+Incline Dumbbell Bench With Palms Facing In|5|1|1
+Incline Dumbbell Curl|3|1|1
+Incline Dumbbell Flyes|5|1|1
+Incline Dumbbell Flyes - With A Twist|5|1|1
+Incline Dumbbell Press|5|1|1
+Incline Hammer Curls|3|1|1
+Incline Inner Biceps Curl|3|1|1
+Incline Push-Up|5|3|1
+Incline Push-Up Close-Grip|16|3|1
+Incline Push-Up Depth Jump|5|11|1
+Incline Push-Up Medium|5|3|1
+Incline Push-Up Reverse Grip|5|3|1
+Incline Push-Up Wide|5|3|1
+Intermediate Groin Stretch|8|11|1
+Intermediate Hip Flexor and Quad Stretch|13|11|1
+Internal Rotation with Band|14|6|1
+Inverted Row|11|-1|1
+Inverted Row with Straps|11|11|1
+Iron Cross|14|1|1
+Iron Crosses (stretch)|13|-1|1
+Isometric Chest Squeezes|5|3|1
+Isometric Neck Exercise - Front And Back|12|3|1
+Isometric Neck Exercise - Sides|12|3|1
+Isometric Wipers|5|3|1
+JM Press|16|0|1
+Jackknife Sit-Up|0|3|1
+Janda Sit-Up|0|3|1
+Jefferson Squats|13|0|1
+Jerk Balance|14|0|1
+Jerk Dip Squat|13|0|1
+Jogging, Treadmill|13|4|1
+Keg Load|10|11|1
+Kettlebell Arnold Press|14|5|1
+Kettlebell Dead Clean|8|5|1
+Kettlebell Figure 8|0|5|1
+Kettlebell Halo|14|5|0
+Kettlebell Halo with Overhead Extension|14|5|0
+Kettlebell Hang Clean|8|5|1
+Kettlebell One-Legged Deadlift|8|5|1
+Kettlebell Overhead Triceps Extension|16|5|0
+Kettlebell Pass Between The Legs|0|5|1
+Kettlebell Pirate Ships|14|5|1
+Kettlebell Pistol Squat|13|5|1
+Kettlebell Seated Press|14|5|1
+Kettlebell Seesaw Press|14|5|1
+Kettlebell Sumo High Pull|15|5|1
+Kettlebell Thruster|14|5|1
+Kettlebell Turkish Get-Up (Lunge style)|14|5|1
+Kettlebell Turkish Get-Up (Squat style)|14|5|1
+Kettlebell Windmill|0|5|1
+Kipping Muscle Up|9|11|1
+Knee Across The Body|7|-1|1
+Knee Circles|4|3|1
+Knee/Hip Raise On Parallel Bars|0|11|1
+Knee Tuck Jump|8|3|1
+Kneeling Arm Drill|14|-1|1
+Kneeling Cable Crunch With Alternating Oblique Twists|0|2|1
+Kneeling Cable Triceps Extension|16|2|1
+Kneeling Forearm Stretch|6|-1|1
+Kneeling High Pulley Row|9|2|1
+Kneeling Hip Flexor|13|-1|1
+Kneeling Jump Squat|7|0|1
+Kneeling Single-Arm High Pulley Row|9|2|1
+Kneeling Squat|7|0|1
+Landmine 180's|0|0|1
+Landmine Linear Jammer|14|0|1
+Lateral Bound|2|3|1
+Lateral Box Jump|2|11|1
+Lateral Cone Hops|2|11|1
+Lateral Raise - With Bands|14|6|1
+Latissimus Dorsi-SMR|9|10|1
+Leg-Over Floor Press|5|5|1
+Leg-Up Hamstring Stretch|8|-1|1
+Leg Extensions|13|4|1
+Leg Lift|7|3|1
+Leg Press|13|4|1
+Leg Pull-In|0|3|1
+Leverage Chest Press|5|4|1
+Leverage Deadlift|13|4|1
+Leverage Decline Chest Press|5|4|1
+Leverage High Row|11|4|1
+Leverage Incline Chest Press|5|4|1
+Leverage Iso Row|9|4|1
+Leverage Shoulder Press|14|4|1
+Leverage Shrug|15|4|1
+Linear 3-Part Start Technique|8|-1|1
+Linear Acceleration Wall Drill|8|-1|1
+Linear Depth Jump|13|11|1
+Log Lift|14|11|1
+London Bridges|9|11|1
+Looking At Ceiling|13|-1|1
+Low Cable Crossover|5|2|1
+Low Cable Triceps Extension|16|2|1
+Low Pulley Row To Neck|14|2|1
+Lower Back-SMR|10|10|1
+Lower Back Curl|0|3|1
+Lunge Pass Through|8|5|1
+Lunge Sprint|13|4|1
+Lying Bent Leg Groin|2|11|1
+Lying Cable Curl|3|2|1
+Lying Cambered Barbell Row|11|0|1
+Lying Close-Grip Bar Curl On High Pulley|3|2|1
+Lying Close-Grip Barbell Triceps Extension Behind The Head|16|0|1
+Lying Close-Grip Barbell Triceps Press To Chin|16|9|1
+Lying Crossover|1|3|1
+Lying Dumbbell Tricep Extension|16|1|1
+Lying Face Down Plate Neck Resistance|12|11|1
+Lying Face Up Plate Neck Resistance|12|11|1
+Lying Glute|7|3|1
+Lying Hamstring|8|11|1
+Lying High Bench Barbell Curl|3|0|1
+Lying Leg Curls|8|4|1
+Lying Machine Squat|13|4|1
+Lying One-Arm Lateral Raise|14|1|1
+Lying Prone Quadriceps|13|3|1
+Lying Rear Delt Raise|14|1|1
+Lying Supine Dumbbell Curl|3|1|1
+Lying T-Bar Row|11|4|1
+Lying Triceps Press|16|9|1
+Machine Bench Press|5|4|1
+Machine Bicep Curl|3|4|1
+Machine Preacher Curls|3|4|1
+Machine Shoulder (Military) Press|14|4|1
+Machine Triceps Extension|16|4|1
+Medicine Ball Chest Pass|5|7|1
+Medicine Ball Full Twist|0|7|1
+Medicine Ball Scoop Throw|14|7|1
+Middle Back Shrug|11|1|1
+Middle Back Stretch|11|-1|1
+Mixed Grip Chin|11|11|1
+Monster Walk|1|6|1
+Mountain Climbers|13|-1|1
+Moving Claw Series|8|-1|1
+Muscle Snatch|8|0|1
+Muscle Up|9|11|1
+Narrow Stance Hack Squats|13|4|1
+Narrow Stance Leg Press|13|4|1
+Narrow Stance Squats|13|0|1
+Natural Glute Ham Raise|8|3|1
+Neck-SMR|12|11|1
+Neck Press|5|0|1
+Oblique Crunches|0|3|1
+Oblique Crunches - On The Floor|0|3|1
+Olympic Squat|13|0|1
+On-Your-Back Quad Stretch|13|11|1
+On Your Side Quad Stretch|13|-1|1
+One-Arm Dumbbell Row|11|1|1
+One-Arm Flat Bench Dumbbell Flye|5|1|1
+One-Arm High-Pulley Cable Side Bends|0|2|1
+One-Arm Incline Lateral Raise|14|1|1
+One-Arm Kettlebell Clean|8|5|1
+One-Arm Kettlebell Clean and Jerk|14|5|1
+One-Arm Kettlebell Floor Press|5|5|1
+One-Arm Kettlebell Jerk|14|5|1
+One-Arm Kettlebell Military Press To The Side|14|5|1
+One-Arm Kettlebell Para Press|14|5|1
+One-Arm Kettlebell Push Press|14|5|1
+One-Arm Kettlebell Row|11|5|1
+One-Arm Kettlebell Snatch|14|5|1
+One-Arm Kettlebell Split Jerk|14|5|1
+One-Arm Kettlebell Split Snatch|14|5|1
+One-Arm Kettlebell Swings|8|5|1
+One-Arm Long Bar Row|11|0|1
+One-Arm Medicine Ball Slam|0|7|1
+One-Arm Open Palm Kettlebell Clean|8|5|1
+One-Arm Overhead Kettlebell Squats|13|5|1
+One-Arm Side Deadlift|13|0|1
+One-Arm Side Laterals|14|1|1
+One-Legged Cable Kickback|7|2|1
+One Arm Against Wall|9|-1|1
+One Arm Chin-Up|11|11|1
+One Arm Dumbbell Bench Press|5|1|1
+One Arm Dumbbell Preacher Curl|3|1|1
+One Arm Floor Press|16|0|1
+One Arm Lat Pulldown|9|2|1
+One Arm Pronated Dumbbell Triceps Extension|16|1|1
+One Arm Supinated Dumbbell Triceps Extension|16|1|1
+One Half Locust|13|-1|1
+One Handed Hang|9|11|1
+One Knee To Chest|7|-1|1
+One Leg Barbell Squat|13|0|1
+Open Palm Kettlebell Clean|8|5|1
+Otis-Up|0|11|1
+Overhead Cable Curl|3|2|1
+Overhead Lat|9|11|1
+Overhead Slam|9|7|1
+Overhead Squat|13|0|1
+Overhead Stretch|0|-1|1
+Overhead Triceps|16|3|1
+Pallof Press|0|2|1
+Pallof Press With Rotation|0|2|1
+Palms-Down Dumbbell Wrist Curl Over A Bench|6|1|1
+Palms-Down Wrist Curl Over A Bench|6|0|1
+Palms-Up Barbell Wrist Curl Over A Bench|6|0|1
+Palms-Up Dumbbell Wrist Curl Over A Bench|6|1|1
+Parallel Bar Dip|16|11|1
+Pelvic Tilt Into Bridge|10|-1|1
+Peroneals-SMR|4|10|1
+Peroneals Stretch|4|11|1
+Physioball Hip Bridge|7|8|1
+Pin Presses|16|0|1
+Piriformis-SMR|7|10|1
+Plank|0|3|1
+Plate Pinch|6|11|1
+Plate Twist|0|11|1
+Platform Hamstring Slides|8|11|1
+Plie Dumbbell Squat|13|1|1
+Plyo Kettlebell Pushups|5|5|1
+Plyo Push-up|5|3|1
+Posterior Tibialis Stretch|4|11|1
+Power Clean|8|0|1
+Power Clean from Blocks|8|0|1
+Power Jerk|13|0|1
+Power Partials|14|1|1
+Power Snatch|8|0|1
+Power Snatch from Blocks|13|0|1
+Power Stairs|8|11|1
+Preacher Curl|3|0|1
+Preacher Hammer Dumbbell Curl|3|1|1
+Press Sit-Up|0|0|1
+Prone Manual Hamstring|8|-1|1
+Prowler Sprint|8|11|1
+Pull Through|7|2|1
+Pullups|9|3|1
+Push-Up Wide|5|3|1
+Push-Ups - Close Triceps Position|16|3|1
+Push-Ups With Feet Elevated|5|3|1
+Push-Ups With Feet On An Exercise Ball|5|8|1
+Push Press|14|0|1
+Push Press - Behind the Neck|14|0|1
+Push Up to Side Plank|5|3|1
+Pushups|5|3|1
+Pushups (Close and Wide Hand Positions)|5|3|1
+Pyramid|10|8|1
+Quad Stretch|13|11|1
+Quadriceps-SMR|13|10|1
+Quick Leap|13|11|1
+Rack Delivery|14|0|1
+Rack Pull with Bands|10|0|1
+Rack Pulls|10|0|1
+Rear Leg Raises|13|3|1
+Recumbent Bike|13|4|1
+Return Push from Stance|14|7|1
+Reverse Band Bench Press|16|0|1
+Reverse Band Box Squat|13|0|1
+Reverse Band Deadlift|10|0|1
+Reverse Band Power Squat|13|0|1
+Reverse Band Sumo Deadlift|8|0|1
+Reverse Barbell Curl|3|0|1
+Reverse Barbell Preacher Curls|3|9|1
+Reverse Cable Curl|3|2|1
+Reverse Crunch|0|3|1
+Reverse Flyes|14|1|1
+Reverse Flyes With External Rotation|14|1|1
+Reverse Grip Bent-Over Rows|11|0|1
+Reverse Grip Triceps Pushdown|16|2|1
+Reverse Hyperextension|8|4|1
+Reverse Machine Flyes|14|4|1
+Reverse Plate Curls|3|11|1
+Reverse Triceps Bench Press|16|0|1
+Rhomboids-SMR|11|10|1
+Rickshaw Carry|6|11|1
+Rickshaw Deadlift|13|11|1
+Ring Dips|16|11|1
+Rocket Jump|13|3|1
+Rocking Standing Calf Raise|4|0|1
+Rocky Pull-Ups/Pulldowns|9|11|1
+Romanian Deadlift|8|0|1
+Romanian Deadlift from Deficit|8|0|1
+Rope Climb|9|11|1
+Rope Crunch|0|2|1
+Rope Jumping|13|11|1
+Rope Straight-Arm Pulldown|9|2|1
+Round The World Shoulder Stretch|14|11|1
+Rowing, Stationary|13|4|1
+Runner's Stretch|8|-1|1
+Running, Treadmill|13|4|1
+Russian Twist|0|3|1
+Sandbag Load|13|11|1
+Scapular Pull-Up|15|-1|1
+Scissor Kick|0|3|1
+Scissors Jump|13|3|1
+Seated Band Hamstring Curl|8|11|1
+Seated Barbell Military Press|14|0|1
+Seated Barbell Twist|0|0|1
+Seated Bent-Over One-Arm Dumbbell Triceps Extension|16|1|1
+Seated Bent-Over Rear Delt Raise|14|1|1
+Seated Bent-Over Two-Arm Dumbbell Triceps Extension|16|1|1
+Seated Biceps|3|3|1
+Seated Cable Rows|11|2|1
+Seated Cable Shoulder Press|14|2|1
+Seated Calf Raise|4|4|1
+Seated Calf Stretch|4|-1|1
+Seated Close-Grip Concentration Barbell Curl|3|0|1
+Seated Dumbbell Curl|3|1|1
+Seated Dumbbell Inner Biceps Curl|3|1|1
+Seated Dumbbell Palms-Down Wrist Curl|6|1|1
+Seated Dumbbell Palms-Up Wrist Curl|6|1|1
+Seated Dumbbell Press|14|1|1
+Seated Flat Bench Leg Pull-In|0|3|1
+Seated Floor Hamstring Stretch|8|-1|1
+Seated Front Deltoid|14|3|1
+Seated Glute|7|3|1
+Seated Good Mornings|10|0|1
+Seated Hamstring|8|-1|1
+Seated Hamstring and Calf Stretch|8|11|1
+Seated Head Harness Neck Resistance|12|11|1
+Seated Leg Curl|8|4|1
+Seated Leg Tucks|0|3|1
+Seated One-Arm Dumbbell Palms-Down Wrist Curl|6|1|1
+Seated One-Arm Dumbbell Palms-Up Wrist Curl|6|1|1
+Seated One-arm Cable Pulley Rows|11|2|1
+Seated Overhead Stretch|0|-1|1
+Seated Palm-Up Barbell Wrist Curl|6|0|1
+Seated Palms-Down Barbell Wrist Curl|6|0|1
+Seated Side Lateral Raise|14|1|1
+Seated Triceps Press|16|1|1
+Seated Two-Arm Palms-Up Low-Pulley Wrist Curl|6|2|1
+See-Saw Press (Alternating Side Press)|14|1|1
+Shotgun Row|9|2|1
+Shoulder Circles|14|-1|1
+Shoulder Press - With Bands|14|6|1
+Shoulder Raise|14|-1|1
+Shoulder Stretch|14|-1|1
+Side-Lying Floor Stretch|9|-1|1
+Side Bridge|0|3|1
+Side Hop-Sprint|13|11|1
+Side Jackknife|0|3|1
+Side Lateral Raise|14|1|1
+Side Laterals to Front Raise|14|1|1
+Side Leg Raises|2|3|1
+Side Lying Groin Stretch|2|-1|1
+Side Neck Stretch|12|-1|1
+Side Standing Long Jump|13|-1|1
+Side To Side Chins|9|11|1
+Side Wrist Pull|14|-1|1
+Side to Side Box Shuffle|13|11|1
+Single-Arm Cable Crossover|5|2|1
+Single-Arm Linear Jammer|14|0|1
+Single-Arm Push-Up|5|3|1
+Single-Cone Sprint Drill|13|11|1
+Single-Leg High Box Squat|13|11|1
+Single-Leg Hop Progression|13|11|1
+Single-Leg Lateral Hop|13|11|1
+Single-Leg Leg Extension|13|4|1
+Single-Leg Stride Jump|13|11|1
+Single Dumbbell Raise|14|1|1
+Single Leg Butt Kick|13|3|1
+Single Leg Glute Bridge|7|3|1
+Single Leg Push-off|13|11|1
+Sit-Up|0|3|1
+Sit Squats|13|-1|1
+Skating|13|11|1
+Sled Drag - Harness|13|11|1
+Sled Overhead Backward Walk|14|11|1
+Sled Overhead Triceps Extension|16|11|1
+Sled Push|13|11|1
+Sled Reverse Flye|14|11|1
+Sled Row|11|11|1
+Sledgehammer Swings|0|11|1
+Smith Incline Shoulder Raise|14|0|1
+Smith Machine Behind the Back Shrug|15|4|1
+Smith Machine Bench Press|5|4|1
+Smith Machine Bent Over Row|11|4|1
+Smith Machine Calf Raise|4|4|1
+Smith Machine Close-Grip Bench Press|16|4|1
+Smith Machine Decline Press|5|4|1
+Smith Machine Hang Power Clean|8|4|1
+Smith Machine Hip Raise|0|4|1
+Smith Machine Incline Bench Press|5|4|1
+Smith Machine Leg Press|13|4|1
+Smith Machine One-Arm Upright Row|14|4|1
+Smith Machine Overhead Shoulder Press|14|4|1
+Smith Machine Pistol Squat|13|4|1
+Smith Machine Reverse Calf Raises|4|4|1
+Smith Machine Squat|13|4|1
+Smith Machine Stiff-Legged Deadlift|8|4|1
+Smith Machine Upright Row|15|4|1
+Smith Single-Leg Split Squat|13|4|1
+Snatch|13|0|1
+Snatch Balance|13|0|1
+Snatch Deadlift|8|0|1
+Snatch Pull|8|0|1
+Snatch Shrug|15|0|1
+Snatch from Blocks|13|0|1
+Speed Band Overhead Triceps|16|6|1
+Speed Box Squat|13|0|1
+Speed Squats|13|0|1
+Spell Caster|0|1|1
+Spider Crawl|0|3|1
+Spider Curl|3|9|1
+Spinal Stretch|11|-1|1
+Split Clean|13|0|1
+Split Jerk|13|0|1
+Split Jump|13|3|1
+Split Snatch|8|0|1
+Split Squat with Dumbbells|13|1|1
+Split Squats|8|-1|1
+Squat Jerk|13|0|1
+Squat with Bands|13|0|1
+Squat with Chains|13|0|1
+Squat with Plate Movers|13|0|1
+Squats - With Bands|13|6|1
+Stairmaster|13|4|1
+Standing Alternating Dumbbell Press|14|1|1
+Standing Barbell Calf Raise|4|0|1
+Standing Barbell Press Behind Neck|14|0|1
+Standing Bent-Over One-Arm Dumbbell Triceps Extension|16|1|1
+Standing Bent-Over Two-Arm Dumbbell Triceps Extension|16|1|1
+Standing Biceps Cable Curl|3|2|1
+Standing Biceps Stretch|3|11|1
+Standing Bradford Press|14|0|1
+Standing Cable Chest Press|5|2|1
+Standing Cable Lift|0|2|1
+Standing Cable Wood Chop|0|2|1
+Standing Calf Raises|4|4|1
+Standing Concentration Curl|3|1|1
+Standing Dumbbell Calf Raise|4|1|1
+Standing Dumbbell Press|14|1|1
+Standing Dumbbell Reverse Curl|3|1|1
+Standing Dumbbell Straight-Arm Front Delt Raise Above Head|14|1|1
+Standing Dumbbell Triceps Extension|16|1|1
+Standing Dumbbell Upright Row|15|1|1
+Standing Elevated Quad Stretch|13|11|1
+Standing Front Barbell Raise Over Head|14|0|1
+Standing Gastrocnemius Calf Stretch|4|-1|1
+Standing Hamstring and Calf Stretch|8|11|1
+Standing Hip Circles|1|3|1
+Standing Hip Flexors|13|-1|1
+Standing Inner-Biceps Curl|3|1|1
+Standing Lateral Stretch|0|-1|1
+Standing Leg Curl|8|4|1
+Standing Long Jump|13|3|1
+Standing Low-Pulley Deltoid Raise|14|2|1
+Standing Low-Pulley One-Arm Triceps Extension|16|2|1
+Standing Military Press|14|0|1
+Standing Olympic Plate Hand Squeeze|6|11|1
+Standing One-Arm Cable Curl|3|2|1
+Standing One-Arm Dumbbell Curl Over Incline Bench|3|1|1
+Standing One-Arm Dumbbell Triceps Extension|16|1|1
+Standing Overhead Barbell Triceps Extension|16|0|1
+Standing Palm-In One-Arm Dumbbell Press|14|1|1
+Standing Palms-In Dumbbell Press|14|1|1
+Standing Palms-Up Barbell Behind The Back Wrist Curl|6|0|1
+Standing Pelvic Tilt|10|-1|1
+Standing Rope Crunch|0|2|1
+Standing Soleus And Achilles Stretch|4|-1|1
+Standing Toe Touches|8|-1|1
+Standing Towel Triceps Extension|16|3|1
+Standing Two-Arm Overhead Throw|14|7|1
+Star Jump|13|3|1
+Step-up with Knee Raise|7|3|1
+Step Mill|13|4|1
+Stiff-Legged Barbell Deadlift|8|0|1
+Stiff-Legged Dumbbell Deadlift|8|1|1
+Stiff Leg Barbell Good Morning|10|0|1
+Stomach Vacuum|0|3|1
+Straight-Arm Dumbbell Pullover|5|1|1
+Straight-Arm Pulldown|9|2|1
+Straight Bar Bench Mid Rows|11|0|1
+Straight Raises on Incline Bench|14|0|1
+Stride Jump Crossover|13|11|1
+Sumo Deadlift|8|0|1
+Sumo Deadlift with Bands|8|0|1
+Sumo Deadlift with Chains|8|0|1
+Superman|10|3|1
+Supine Chest Throw|16|7|1
+Supine One-Arm Overhead Throw|0|7|1
+Supine Two-Arm Overhead Throw|0|7|1
+Suspended Fallout|0|11|1
+Suspended Push-Up|5|11|1
+Suspended Reverse Crunch|0|11|1
+Suspended Row|11|11|1
+Suspended Split Squat|13|11|1
+Svend Press|5|11|1
+T-Bar Row with Handle|11|0|1
+Tate Press|16|1|1
+The Straddle|8|-1|1
+Thigh Abductor|1|4|1
+Thigh Adductor|2|4|1
+Tire Flip|13|11|1
+Toe Touchers|0|3|1
+Torso Rotation|0|8|1
+Trail Running/Walking|13|-1|1
+Trap Bar Deadlift|13|11|1
+Tricep Dumbbell Kickback|16|1|1
+Tricep Side Stretch|16|-1|1
+Triceps Overhead Extension with Rope|16|2|1
+Triceps Pushdown|16|2|1
+Triceps Pushdown - Rope Attachment|16|2|1
+Triceps Pushdown - V-Bar Attachment|16|2|1
+Triceps Stretch|16|-1|1
+Tuck Crunch|0|3|1
+Two-Arm Dumbbell Preacher Curl|3|1|1
+Two-Arm Kettlebell Clean|14|5|1
+Two-Arm Kettlebell Jerk|14|5|1
+Two-Arm Kettlebell Military Press|14|5|1
+Two-Arm Kettlebell Row|11|5|1
+Underhand Cable Pulldowns|9|2|1
+Upper Back-Leg Grab|8|-1|1
+Upper Back Stretch|11|-1|1
+Upright Barbell Row|14|0|1
+Upright Cable Row|15|2|1
+Upright Row - With Bands|15|6|1
+Upward Stretch|14|-1|1
+V-Bar Pulldown|9|2|1
+V-Bar Pullup|9|3|1
+Vertical Swing|8|1|1
+Walking, Treadmill|13|4|1
+Weighted Ball Hyperextension|10|8|1
+Weighted Ball Side Bend|0|8|1
+Weighted Bench Dip|16|11|1
+Weighted Crunches|0|7|1
+Weighted Jump Squat|13|0|1
+Weighted Pull Ups|9|11|1
+Weighted Sissy Squat|13|0|1
+Weighted Sit-Ups - With Bands|0|11|1
+Weighted Squat|13|11|1
+Wide-Grip Barbell Bench Press|5|0|1
+Wide-Grip Decline Barbell Bench Press|5|0|1
+Wide-Grip Decline Barbell Pullover|5|0|1
+Wide-Grip Lat Pulldown|9|2|1
+Wide-Grip Pulldown Behind The Neck|9|2|1
+Wide-Grip Rear Pull-Up|9|3|1
+Wide-Grip Standing Barbell Curl|3|0|1
+Wide Stance Barbell Squat|13|0|1
+Wide Stance Stiff Legs|8|0|1
+Wind Sprints|0|3|1
+Windmills|1|-1|1
+World's Greatest Stretch|8|-1|1
+Wrist Circles|6|3|1
+Wrist Roller|6|11|1
+Wrist Rotations with Straight Bar|6|0|1
+Yoke Walk|13|11|1
+Zercher Squats|13|0|1
+Zottman Curl|3|1|1
+Zottman Preacher Curl|3|1|1`;
+
+  // Le chemin de la photo se déduit du nom : pas besoin de le stocker.
+  function imagePathFor(name) {
+    return IMAGE_BASE_URL + name.replace(/['()]/g, '').replace(/[^A-Za-z0-9-]+/g, '_').replace(/_+/g, '_') + '/0.jpg';
+  }
+
+  let extendedExercises = [];
   let imageDbReady = false;
-  let imageDbPromise = null;
+  let imageDbFailed = false;
+  let exerciseImageMap = {};
+
+  function parseEmbeddedDb() {
+    if (imageDbReady) return;
+    try {
+      extendedExercises = EXERCISE_DB_RAW.split('\n').filter(Boolean).map(line => {
+        const p = line.split('|');
+        const mi = parseInt(p[1]), qi = parseInt(p[2]);
+        return {
+          name: p[0],
+          muscle: mi >= 0 ? DB_MUSCLES[mi] : null,
+          equip: qi >= 0 ? DB_EQUIP[qi] : null,
+          image: p[3] === '1' ? imagePathFor(p[0]) : null
+        };
+      });
+      buildFrenchImageMap();
+      imageDbReady = true;
+    } catch (err) {
+      console.error('Base embarquée illisible :', err);
+      imageDbFailed = true;
+    }
+  }
 
   function tokenizeEn(s) {
     return normSearch(s).replace(/[^a-z0-9]+/g, ' ').split(' ').filter(Boolean);
   }
 
-  function resolveImageMap(list) {
-    let cached = {};
-    try {
-      const raw = localStorage.getItem(IMAGE_MAP_KEY);
-      if (raw) cached = JSON.parse(raw);
-    } catch (e) {}
-
-    const tokenized = list.map(e => ({ image: e.image, tokens: tokenizeEn(e.name) }));
+  // Associe chaque exercice français à la photo de son équivalent anglais,
+  // par recouvrement de mots-clés.
+  function buildFrenchImageMap() {
+    const tokenized = extendedExercises
+      .filter(e => e.image)
+      .map(e => ({ image: e.image, tokens: tokenizeEn(e.name) }));
 
     Object.keys(EXERCISE_EN_HINTS).forEach(frName => {
-      if (Object.prototype.hasOwnProperty.call(cached, frName)) {
-        exerciseImageMap[frName] = cached[frName];
-        return;
-      }
       const hintTokens = tokenizeEn(EXERCISE_EN_HINTS[frName]);
       let best = null, bestScore = 0;
       tokenized.forEach(e => {
@@ -1396,59 +2509,110 @@
         if (score > bestScore) { bestScore = score; best = e; }
       });
       const minScore = Math.max(1, Math.ceil(hintTokens.length * 0.5));
-      exerciseImageMap[frName] = (best && bestScore >= minScore) ? (IMAGE_BASE_URL + best.image) : null;
+      exerciseImageMap[frName] = (best && bestScore >= minScore) ? best.image : null;
     });
-
-    try { localStorage.setItem(IMAGE_MAP_KEY, JSON.stringify(exerciseImageMap)); } catch (e) {}
   }
 
+  // Conservé pour compatibilité : la base est désormais locale, donc instantanée.
   function loadImageDatabase() {
-    if (imageDbReady) return Promise.resolve();
-    if (imageDbPromise) return imageDbPromise;
+    parseEmbeddedDb();
+    return Promise.resolve();
+  }
 
-    imageDbPromise = (async () => {
-      try {
-        let list;
-        const cachedRaw = localStorage.getItem(IMAGE_CACHE_KEY);
-        if (cachedRaw) {
-          list = JSON.parse(cachedRaw);
-        } else {
-          const res = await fetch(IMAGE_DB_URL);
-          if (!res.ok) throw new Error('HTTP ' + res.status);
-          const data = await res.json();
-          list = data
-            .filter(e => e && e.name && e.images && e.images[0])
-            .map(e => ({ name: e.name, image: e.images[0] }));
-          localStorage.setItem(IMAGE_CACHE_KEY, JSON.stringify(list));
-        }
-        resolveImageMap(list);
-        imageDbReady = true;
-      } catch (err) {
-        console.error('Photos indisponibles (hors-ligne ou erreur réseau) :', err);
-      }
-    })();
-
-    return imageDbPromise;
+  // Nettoie les caches réseau des versions précédentes, devenus inutiles.
+  function purgeOldCaches() {
+    ['exercise-image-db-v1', 'exercise-image-map-v1', 'exercise-db-v2', 'exercise-image-map-v2']
+      .forEach(k => { try { localStorage.removeItem(k); } catch (e) {} });
   }
 
   function normSearch(s) {
     return s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
   }
 
+  // La base étendue (déclarée plus haut) complète la liste française :
+  // celle-ci reste prioritaire dans les résultats, puisque ce sont les noms
+  // que tu utilises au quotidien.
+  const MUSCLE_FR = {
+    'abdominals': 'Abdominaux', 'abductors': 'Abducteurs', 'adductors': 'Adducteurs',
+    'biceps': 'Biceps', 'calves': 'Mollets', 'chest': 'Pectoraux',
+    'forearms': 'Avant-bras', 'glutes': 'Fessiers', 'hamstrings': 'Ischios',
+    'lats': 'Dos', 'lower back': 'Lombaires', 'middle back': 'Dos',
+    'neck': 'Nuque', 'quadriceps': 'Quadriceps', 'shoulders': 'Épaules',
+    'traps': 'Trapèzes', 'triceps': 'Triceps'
+  };
+
+  const EQUIP_FR = {
+    'barbell': 'barre', 'dumbbell': 'haltères', 'cable': 'poulie',
+    'body only': 'poids du corps', 'machine': 'machine', 'kettlebells': 'kettlebell',
+    'bands': 'élastique', 'medicine ball': 'médecine-ball', 'exercise ball': 'swiss ball',
+    'e-z curl bar': 'barre EZ', 'foam roll': 'rouleau', 'other': ''
+  };
+
+  // Matériel dont tu ne disposes pas : ces exercices sont relégués en fin de
+  // liste plutôt que masqués, au cas où tu changes d'équipement.
+  const UNAVAILABLE_EQUIP = new Set(['kettlebells', 'medicine ball', 'bands', 'exercise ball', 'foam roll']);
+
+  function groupFromDbEntry(e) {
+    const m = e.muscle ? MUSCLE_FR[e.muscle] : null;
+    return m || 'Autre';
+  }
+
   function searchExercises(query) {
     const q = normSearch(query.trim());
     const results = [];
+    const seen = new Set();
+
+    // 1) liste française d'abord
     EXERCISE_LIBRARY.forEach(([group, names]) => {
       names.forEach(name => {
         if (!q || normSearch(name).includes(q)) {
-          results.push({ name, group });
+          results.push({ name, group, source: 'fr' });
+          seen.add(normSearch(name));
         }
       });
     });
-    return results.slice(0, 8);
+
+    // 2) base étendue ensuite, uniquement si une recherche est en cours
+    if (q && extendedExercises.length) {
+      const prio = [], later = [];
+      for (const e of extendedExercises) {
+        const n = normSearch(e.name);
+        if (!n.includes(q) || seen.has(n)) continue;
+        seen.add(n);
+        const equip = e.equip ? (EQUIP_FR[e.equip] !== undefined ? EQUIP_FR[e.equip] : e.equip) : '';
+        const item = {
+          name: e.name,
+          group: groupFromDbEntry(e) + (equip ? ' · ' + equip : ''),
+          image: e.image ? (IMAGE_BASE_URL + e.image) : null,
+          source: 'db'
+        };
+        (e.equip && UNAVAILABLE_EQUIP.has(e.equip) ? later : prio).push(item);
+        if (prio.length + later.length > 60) break;
+      }
+      results.push(...prio, ...later);
+    }
+
+    return results.slice(0, 10);
+  }
+
+  function updateExerciseDbStatus() {
+    const el = document.getElementById('ex-db-status');
+    if (!el) return;
+    if (imageDbReady && extendedExercises.length) {
+      el.textContent = extendedExercises.length + ' exercices disponibles (liste FR + base étendue)';
+      el.style.color = 'var(--ink-soft)';
+    } else if (imageDbFailed) {
+      el.textContent = 'Base étendue non chargée — vérifie ta connexion (wifi ou données) et rouvre ce champ. '
+        + 'La liste française reste utilisable hors-ligne.';
+      el.style.color = 'var(--danger)';
+    } else {
+      el.textContent = 'Chargement de la base étendue…';
+      el.style.color = 'var(--ink-soft)';
+    }
   }
 
   function renderExerciseSuggestions(query) {
+    updateExerciseDbStatus();
     const box = document.getElementById('ex-suggestions');
     const results = searchExercises(query);
     box.innerHTML = '';
@@ -1464,7 +2628,7 @@
     results.forEach(r => {
       const row = document.createElement('div');
       row.className = 'ex-suggest-row';
-      const imgUrl = exerciseImageMap[r.name];
+      const imgUrl = r.image || exerciseImageMap[r.name];
       const thumbHtml = imgUrl
         ? '<img class="ex-suggest-thumb" src="' + imgUrl + '" loading="lazy" alt="" onerror="this.remove()">'
         : '<span class="ex-suggest-thumb ex-suggest-thumb-empty"></span>';
@@ -1639,6 +2803,13 @@
         }
         if (iconSpan.textContent) btn.appendChild(iconSpan);
       }
+      // point discret sur les jours prévus au programme et pas encore remplis
+      if (!entry && plannedFor(key)) {
+        const dot = document.createElement('span');
+        dot.className = 'plan-dot';
+        btn.appendChild(dot);
+      }
+
       if (key === todayKey) btn.classList.add('today');
       if (dateObj > todayObj && key !== todayKey) btn.classList.add('future');
 
@@ -1816,6 +2987,17 @@
 
     document.getElementById('btn-delete').style.visibility = sportDays[key] ? 'visible' : 'hidden';
     document.getElementById('btn-copy').style.visibility = sportDays[key] ? 'visible' : 'hidden';
+
+    // Proposer la séance du programme seulement si rien n'est encore saisi
+    const planned = plannedFor(key);
+    const prefillBtn = document.getElementById('btn-prefill');
+    if (planned && currentActivities.length === 0) {
+      prefillBtn.style.display = 'block';
+      prefillBtn.textContent = '⚡ Charger : ' + planned.title.toLowerCase() +
+        (planned.isDeload ? ' (décharge)' : '');
+    } else {
+      prefillBtn.style.display = 'none';
+    }
     document.getElementById('activity-form').classList.remove('open');
 
     renderActivityList();
@@ -1978,6 +3160,103 @@
     render();
   });
 
+  // ---- Affichage du programme ----
+
+  function renderProgramCard() {
+    const card = document.getElementById('program-card');
+    const setup = document.getElementById('prog-setup');
+
+    if (!programEnabled || !programStart) {
+      card.style.display = 'none';
+      setup.style.display = 'block';
+      return;
+    }
+    setup.style.display = 'none';
+
+    const planned = plannedFor(todayKey);
+    if (!planned) {
+      // jour de repos : on affiche quand même la prochaine séance prévue
+      let next = null, nextKey = null;
+      for (let i = 1; i <= 7; i++) {
+        const d = new Date(todayObj);
+        d.setDate(d.getDate() + i);
+        const k = fmtKey(d);
+        const p = plannedFor(k);
+        if (p) { next = p; nextKey = k; break; }
+      }
+      card.style.display = 'block';
+      document.getElementById('prog-badge').textContent = 'Repos';
+      document.getElementById('prog-badge').className = 'prog-badge deload';
+      document.getElementById('prog-title').textContent = 'Jour de repos';
+      document.getElementById('prog-focus').textContent = next
+        ? 'Prochaine séance ' + new Date(nextKey + 'T00:00:00')
+            .toLocaleDateString('fr-FR', { weekday: 'long' }) + ' : ' + next.title.toLowerCase()
+        : '';
+      document.getElementById('prog-ex').textContent = '';
+      return;
+    }
+
+    card.style.display = 'block';
+    const badge = document.getElementById('prog-badge');
+    badge.textContent = planned.isDeload ? 'Semaine 4 · décharge' : 'Semaine ' + planned.cycleWeek;
+    badge.className = 'prog-badge' + (planned.isDeload ? ' deload' : '');
+
+    document.getElementById('prog-title').textContent = planned.title;
+    document.getElementById('prog-focus').textContent =
+      planned.focus + ' · ' + planned.duration + ' min' +
+      (planned.isDeload ? ' · charges à 60 %' : '');
+
+    document.getElementById('prog-ex').textContent =
+      planned.exercises.length
+        ? planned.exercises.map(e => e.name).join(' · ')
+        : '';
+  }
+
+  document.getElementById('prog-setup').addEventListener('click', () => {
+    const monday = mondayOf(todayObj);
+    const label = monday.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' });
+    if (!confirm('Démarrer le programme à partir du lundi ' + label + ' ?\n\n' +
+                 'Lundi : force bas\nMardi : endurance\nJeudi : force haut\nSamedi : conditionnement')) return;
+    programStart = fmtKey(monday);
+    programEnabled = true;
+    saveProgram();
+    renderProgramCard();
+    render();
+    showToast('Programme activé ✓');
+  });
+
+  document.getElementById('prog-settings').addEventListener('click', () => {
+    if (!confirm('Désactiver le programme ?\n\nTes séances enregistrées ne seront pas supprimées.')) return;
+    programEnabled = false;
+    saveProgram();
+    renderProgramCard();
+    render();
+    showToast('Programme désactivé');
+  });
+
+  // Pré-remplissage de la fiche depuis le programme
+  document.getElementById('btn-prefill').addEventListener('click', () => {
+    if (!currentEditKey) return;
+    const planned = plannedFor(currentEditKey);
+    if (!planned) return;
+
+    // En semaine de décharge, les charges sont à toi d'ajuster : on ne
+    // pré-remplit pas de poids, seulement la structure de la séance.
+    const acts = [{
+      type: planned.type,
+      duration: planned.duration,
+      exercises: planned.exercises.map(e => ({
+        name: e.name, sets: e.sets, reps: e.reps, weight: e.weight || ''
+      }))
+    }];
+
+    currentActivities = currentActivities.concat(JSON.parse(JSON.stringify(acts)));
+    expandedIdx = currentActivities.length - 1;
+    renderActivityList();
+    document.getElementById('btn-prefill').style.display = 'none';
+    showToast('Séance chargée — ajuste tes charges');
+  });
+
   // ---- Copier une séance vers un autre jour ----
   // Copie les activités et leurs exercices (le contenu de l'entraînement).
   // Les données Santé, le ressenti et la note ne sont pas copiés : ils sont
@@ -2132,7 +3411,19 @@
         names.forEach(n => { muscleGroupIndex[normSearch(n)] = group; });
       });
     }
-    return muscleGroupIndex[normSearch(name)] || 'Autre';
+    const key = normSearch(name);
+    if (muscleGroupIndex[key]) return muscleGroupIndex[key];
+
+    // exercices venant de la base étendue : on lit leur muscle principal
+    if (extendedExercises.length) {
+      const hit = extendedExercises.find(e => normSearch(e.name) === key);
+      if (hit) {
+        const g = groupFromDbEntry(hit);
+        muscleGroupIndex[key] = g;
+        return g;
+      }
+    }
+    return 'Autre';
   }
 
   // Volume d'une série : séries × reps × poids. Sans poids saisi, le volume
@@ -3097,14 +4388,21 @@
   }
 
   loadGoal();
+  loadProgram();
   loadWeightData();
   loadData();
+  renderProgramCard();
 
   const importedKey = importFromUrl();
   if (importedKey) {
     render();
     showToast('Séance importée depuis Santé ✓');
   }
+
+  // Précharge la base étendue en tâche de fond (cache local après la 1re fois).
+  // Échec silencieux si hors-ligne : la liste française suffit à faire tourner l'app.
+  purgeOldCaches();
+  loadImageDatabase();
 </script>
 </body>
 </html>
